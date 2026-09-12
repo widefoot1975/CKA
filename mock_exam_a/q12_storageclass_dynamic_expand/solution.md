@@ -2,6 +2,17 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+1. StorageClass `fast-local` 을 만든다.
+   - provisioner는 `rancher.io/local-path` (클러스터에 설치된 것을 사용. 없으면 `kubernetes.io/no-provisioner`)
+   - `volumeBindingMode: WaitForFirstConsumer`
+   - **볼륨 확장을 허용**한다
+   - 클러스터의 **기본** StorageClass로 지정한다
+2. 이 StorageClass로 1Gi를 요청하는 PVC `app-pvc` 를 만든다.
+3. 이미지 `nginx` 로 이 PVC를 사용하는 파드 `app-pod` 를 만들고, PVC가 언제 `Bound` 가 되는지 관찰한다.
+4. PVC를 3Gi로 확장한다.
+
 ## 모범 풀이
 
 ```yaml

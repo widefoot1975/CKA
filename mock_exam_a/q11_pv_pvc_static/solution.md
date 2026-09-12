@@ -2,6 +2,16 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+1. PersistentVolume `data-pv` 를 만든다.
+   - 용량 2Gi, 접근 모드 `ReadWriteOnce`, `hostPath` 는 `/mnt/data`
+   - `persistentVolumeReclaimPolicy: Retain`
+   - `storageClassName: manual`
+2. 같은 접근 모드와 storage class로 1Gi를 요청하는 PersistentVolumeClaim `data-pvc` 를 만든다.
+3. 이미지 `nginx` 로 파드 `data-pod` 를 만들고, 이 claim을 `/usr/share/nginx/html` 에 마운트한다.
+4. PVC가 `Bound` 이고 파드가 `Running` 인지 확인한다.
+
 ## 모범 풀이
 
 ```yaml

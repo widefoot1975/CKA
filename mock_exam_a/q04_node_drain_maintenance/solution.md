@@ -2,6 +2,16 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+점검을 위해 노드 `worker02` 를 비워야 한다.
+
+1. `worker02` 에서 실행 중인 파드를 옮기고, 새 파드가 이 노드에 스케줄되지 않게 한다.
+2. DaemonSet 파드가 명령을 막지 않도록 처리한다.
+3. `emptyDir` 을 쓰는 파드 때문에 명령이 거부되면 그것도 허용한다.
+4. 점검이 끝났다고 가정하고 노드를 정상 상태로 되돌린다.
+5. 추가로 `worker02` 에 `maintenance=true:NoSchedule` taint를 걸었다가 제거한다.
+
 ## 모범 풀이
 
 ```bash

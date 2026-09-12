@@ -2,6 +2,14 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+파드 안에서 Service를 이름으로 해석하는 것이 실패한다. 같은 Service를 ClusterIP로 접근하면 된다.
+
+1. DNS 해석이 실패하는 이유를 찾는다.
+2. 클러스터 DNS를 복구한다.
+3. 임시 파드에서 `nslookup kubernetes.default` 가 성공하는지 확인한다.
+
 ## 모범 풀이
 
 ClusterIP로는 되고 이름으로는 안 된다면 **네트워크가 아니라 DNS 문제**로 범위가 이미 좁혀졌습니다.

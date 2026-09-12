@@ -2,6 +2,15 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+1. 노드 `worker01` 에 label `disktype=ssd` 를 붙이고 taint `gpu=true:NoSchedule` 을 설정한다.
+2. 이미지 `nginx` 로 파드 `gpu-workload` 를 만든다. 이 파드는
+   - `gpu=true:NoSchedule` taint를 **견딜 수 있어야** 하고,
+   - label `disktype=ssd` 가 있는 노드에**만** 스케줄되어야 한다 (선호가 아니라 필수 조건).
+3. 같은 이미지로 파드 `plain-workload` 를 만든다. toleration은 주지 않는다.
+4. `gpu-workload` 는 `worker01` 에 뜨고 `plain-workload` 는 그렇지 않은지 확인한다.
+
 ## 모범 풀이
 
 ```bash

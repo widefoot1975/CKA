@@ -2,6 +2,14 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+`shop` 네임스페이스의 Service `catalog-svc` 로 보낸 요청에 응답이 없다. 파드는 모두 `Running` 이다.
+
+1. `kubectl get endpoints catalog-svc` 가 비어 있는 이유를 찾는다.
+2. 파드나 Deployment를 **다시 만들지 않고** 고친다.
+3. Service 이름으로 접근되는지 확인한다.
+
 ## 모범 풀이
 
 Endpoints가 비어 있다는 것은 **Service의 selector가 어떤 파드도 고르지 못했다**는 뜻입니다. 원인은 거의 셋 중 하나입니다.

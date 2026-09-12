@@ -2,6 +2,14 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+모든 `kubectl` 명령이 `The connection to the server ... was refused` 로 실패한다. API 서버가 뜨지 않는다.
+
+1. 컨트롤 플레인 노드에 접속해 원인을 찾는다.
+2. `kubectl get nodes` 가 다시 동작하도록 API 서버를 복구한다.
+3. 원인을 한 줄로 기록한다.
+
 ## 모범 풀이
 
 kubectl이 안 되므로 **컨테이너 런타임 레벨(`crictl`)에서 봐야 합니다.**

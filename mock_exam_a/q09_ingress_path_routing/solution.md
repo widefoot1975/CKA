@@ -2,6 +2,17 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+클러스터에 Ingress 컨트롤러가 이미 설치되어 있다.
+
+1. `web` 네임스페이스에 이미지 `nginx`, replicas 2인 Deployment `api` 와 `ui` 를 만들고, 각각 포트 80의 ClusterIP Service `api-svc`, `ui-svc` 로 노출한다.
+2. 호스트 `shop.example.com` 에 대한 Ingress `app-ingress` 를 만들어 다음과 같이 라우팅한다.
+   - `/api` 요청 → `api-svc:80`
+   - `/` 요청 → `ui-svc:80`
+3. `pathType: Prefix` 를 사용한다.
+4. Ingress에 주소가 할당되었는지, 규칙이 의도대로 들어갔는지 확인한다.
+
 ## 모범 풀이
 
 ```bash

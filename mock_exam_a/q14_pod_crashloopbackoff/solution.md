@@ -2,6 +2,14 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+`app` 네임스페이스의 Deployment `payment` 파드가 `CrashLoopBackOff` 로 계속 재시작한다.
+
+1. 원인을 찾아 기록한다.
+2. 파드가 `Running` 을 유지하도록 고친다.
+3. 무엇을 바꿨고 왜 그것이 원인이었는지 한 줄로 적는다.
+
 ## 모범 풀이
 
 ```bash

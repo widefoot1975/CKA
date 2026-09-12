@@ -2,6 +2,18 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+`app` 네임스페이스에 다음을 만든다.
+
+1. `APP_MODE=production`, `LOG_LEVEL=warn` 을 담은 ConfigMap `app-config`.
+2. `DB_USER=admin`, `DB_PASSWORD=s3cr3t` 을 담은 Secret `db-credentials`.
+3. 이미지 `nginx` 로 파드 `configured-app` 을 만든다. 이 파드는
+   - ConfigMap의 **모든 키**를 환경 변수로 주입하고,
+   - Secret의 `DB_PASSWORD` 키**만** 환경 변수 `DATABASE_PASSWORD` 로 주입하고,
+   - Secret **전체**를 `/etc/db` 에 읽기 전용 볼륨으로 마운트한다.
+4. 파드 안에서 환경 변수와 마운트된 파일을 확인한다.
+
 ## 모범 풀이
 
 ```bash

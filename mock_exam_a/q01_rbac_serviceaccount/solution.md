@@ -2,6 +2,15 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+`monitoring` 네임스페이스에 다음을 구성한다.
+
+1. `metrics-reader` 라는 ServiceAccount를 만든다.
+2. `pod-reader` 라는 Role을 만든다. `pods` 와 `pods/log` 리소스에 대해 `get`, `list`, `watch` **만** 허용한다.
+3. Role을 ServiceAccount에 연결하는 RoleBinding `read-pods` 를 만든다.
+4. `kubectl auth can-i` 로 결과를 확인한다. `metrics-reader` 는 파드를 조회할 수 있어야 하지만 삭제할 수는 **없어야** 한다.
+
 ## 모범 풀이
 
 ```bash

@@ -2,6 +2,14 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+`prod` 네임스페이스에는 label이 `app=db`, `app=api`, `app=web` 인 파드가 있다.
+
+1. `prod` 네임스페이스의 **모든 파드로 들어오는 트래픽을 전부 차단**하는 NetworkPolicy `default-deny-ingress` 를 만든다.
+2. 두 번째 정책 `allow-api-to-db` 를 추가한다. label이 `app=db` 인 파드로 들어오는 트래픽을 label이 `app=api` 인 파드에서 오는 것**만**, 그리고 TCP `5432` 포트**만** 허용한다.
+3. `app=api` 파드는 db에 접근되고 `app=web` 파드는 안 되는지 확인한다.
+
 ## 모범 풀이
 
 **1) default deny** — `podSelector: {}` 가 "이 네임스페이스의 모든 파드", `policyTypes: [Ingress]` 에 규칙이 하나도 없으면 전부 차단입니다.

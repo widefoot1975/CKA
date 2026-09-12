@@ -2,6 +2,14 @@
 
 ← 문제: **[question.md](question.md)**
 
+## 문제 (해석)
+
+1. `shop` 네임스페이스에 이미지 `nginx`, replicas 3, 컨테이너 포트 80인 Deployment `catalog` 를 만든다.
+2. 이를 **NodePort** Service `catalog-svc` 로 노출한다.
+   - service 포트 `8080`, target 포트 `80`, node 포트는 `30080` 으로 고정한다.
+3. Service의 Endpoints에 파드 IP 3개가 잡히는지 확인한다.
+4. 클러스터 내부에서 Service 이름으로, 그리고 노드 IP의 30080 포트로 각각 접근해 본다.
+
 ## 모범 풀이
 
 ```bash
