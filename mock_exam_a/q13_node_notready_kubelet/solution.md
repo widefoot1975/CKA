@@ -1,29 +1,8 @@
-# q13 — NotReady 노드 복구
+# q13 — Recover a NotReady node · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Troubleshooting (30%) |
-| 배점 | 7 |
-| 컨텍스트 | `kubectl config use-context k8s-c3` + 노드 ssh |
-| 목표 시간 | 10분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-워커 노드 `worker01` 이 `NotReady` 상태다. 원인을 찾아 노드를 `Ready` 로 되돌린다.
-
-- 클러스터의 다른 노드는 정상이다.
-- 어떤 컴포넌트가 문제인지, 무엇을 고쳤는지 기록한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 진단 순서가 답입니다</summary>
+## 모범 풀이
 
 **진단은 항상 이 순서로.** 원인을 추측하지 말고 좁혀 갑니다.
 
@@ -67,8 +46,6 @@ journalctl -u kubelet -f --no-pager
 ```
 
 `systemctl restart` 앞에 `daemon-reload` 를 빼면 유닛 파일 수정이 반영되지 않습니다.
-
-</details>
 
 ## 검증
 

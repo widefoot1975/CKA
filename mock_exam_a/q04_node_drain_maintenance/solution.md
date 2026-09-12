@@ -1,32 +1,8 @@
-# q04 — 노드 유지보수 (drain / uncordon)
+# q04 — Node maintenance with drain and uncordon · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Cluster Architecture, Installation & Configuration (25%) |
-| 배점 | 5 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 5분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-노드 `worker02` 를 점검하기 위해 워크로드를 비운다.
-
-1. `worker02` 에서 실행 중인 파드를 다른 노드로 옮기고, 새 파드가 이 노드에 스케줄되지 않게 한다.
-2. DaemonSet 파드 때문에 명령이 멈추지 않게 처리한다.
-3. `emptyDir` 을 쓰는 파드가 있어 거부되면 그것도 통과시킨다.
-4. 점검이 끝났다고 가정하고 노드를 원래 상태로 되돌린다.
-5. 추가로, `worker02` 에 `maintenance=true:NoSchedule` taint를 걸었다가 다시 제거한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 ```bash
 # 1~3) 비우기
@@ -44,8 +20,6 @@ kubectl taint node worker02 maintenance=true:NoSchedule-
 ```
 
 `drain` 은 내부적으로 `cordon`(스케줄 차단) + 기존 파드 eviction 입니다. 스케줄만 막고 기존 파드는 그대로 두려면 `kubectl cordon worker02` 만 씁니다.
-
-</details>
 
 ## 검증
 

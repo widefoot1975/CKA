@@ -1,31 +1,8 @@
-# q05 — Deployment 롤링 업데이트와 롤백
+# q05 — Deployment rolling update and rollback · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Workloads & Scheduling (15%) |
-| 배점 | 5 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 6분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`web` 네임스페이스에서 다음을 수행한다.
-
-1. `nginx:1.25` 이미지로 Deployment `frontend` 를 replicas 4로 만든다.
-2. 업데이트 중 **동시에 사용 불가능한 파드가 1개를 넘지 않고, 초과 생성도 1개까지만** 허용되도록 전략을 설정한다.
-3. 이미지를 `nginx:1.26` 으로 업데이트하고 rollout 상태를 확인한다.
-4. 존재하지 않는 태그 `nginx:9.9.9` 로 한 번 더 업데이트해 rollout이 멈추는 것을 확인한 뒤, **직전 정상 버전으로 롤백**한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 ```bash
 kubectl create namespace web
@@ -63,8 +40,6 @@ kubectl -n web rollout status deploy/frontend
 특정 리비전으로 돌아가려면 `kubectl rollout undo deploy/frontend --to-revision=2`.
 
 컨테이너 이름은 `kubectl create deploy` 로 만들면 이미지 이름에서 따옵니다(`nginx`). `set image` 의 `<컨테이너이름>=<이미지>` 에서 이걸 틀리면 조용히 실패합니다 — `kubectl -n web get deploy frontend -o jsonpath='{.spec.template.spec.containers[*].name}'` 로 확인하세요.
-
-</details>
 
 ## 검증
 

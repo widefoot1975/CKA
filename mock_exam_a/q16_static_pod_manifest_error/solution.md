@@ -1,30 +1,8 @@
-# q16 — 정적 파드 매니페스트 오류로 죽은 컨트롤 플레인
+# q16 — Control plane down due to a static pod manifest error · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Troubleshooting (30%) |
-| 배점 | 5 |
-| 컨텍스트 | 컨트롤 플레인 노드에 ssh (kubectl이 아예 안 됨) |
-| 목표 시간 | 8분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`kubectl` 명령이 전부 `The connection to the server ... was refused` 로 실패한다. API 서버가 뜨지 않는다.
-
-1. 컨트롤 플레인 노드에 접속해 원인을 찾는다.
-2. API 서버를 복구해 `kubectl get nodes` 가 동작하게 만든다.
-3. 원인을 한 줄로 기록한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 진단 순서가 답입니다</summary>
+## 모범 풀이
 
 kubectl이 안 되므로 **컨테이너 런타임 레벨(`crictl`)에서 봐야 합니다.**
 
@@ -71,8 +49,6 @@ watch crictl ps | grep apiserver
 mv /etc/kubernetes/manifests/kube-apiserver.yaml /tmp/ && sleep 20
 mv /tmp/kube-apiserver.yaml /etc/kubernetes/manifests/
 ```
-
-</details>
 
 ## 검증
 

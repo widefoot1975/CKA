@@ -1,31 +1,8 @@
-# q01 — ServiceAccount에 최소 권한 Role 부여
+# q01 — Least-privilege Role for a ServiceAccount · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Cluster Architecture, Installation & Configuration (25%) |
-| 배점 | 6 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 5분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`monitoring` 네임스페이스에서 다음을 구성한다.
-
-1. `metrics-reader` 라는 ServiceAccount를 만든다.
-2. `pod-reader` 라는 Role을 만든다. 권한은 **`pods`와 `pods/log` 리소스에 대한 `get`, `list`, `watch` 만** 허용한다.
-3. 두 리소스를 묶는 RoleBinding `read-pods` 를 만든다.
-4. 구성이 올바른지 `kubectl auth can-i` 로 확인한다. `metrics-reader`는 파드를 조회할 수 있어야 하지만 **삭제할 수는 없어야** 한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 ```bash
 kubectl create namespace monitoring
@@ -42,8 +19,6 @@ kubectl -n monitoring create rolebinding read-pods \
 ```
 
 `--serviceaccount` 값은 `<namespace>:<name>` 형식입니다. 네임스페이스를 빼면 `default`로 잡혀 바인딩이 엉뚱한 SA를 가리킵니다.
-
-</details>
 
 ## 검증
 

@@ -1,31 +1,8 @@
-# q06 — taint/toleration + nodeAffinity 배치
+# q06 — Scheduling with taints, tolerations and node affinity · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Workloads & Scheduling (15%) |
-| 배점 | 5 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 8분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-1. 노드 `worker01` 에 label `disktype=ssd` 를, taint `gpu=true:NoSchedule` 을 설정한다.
-2. 파드 `gpu-workload` 를 만든다. 이미지는 `nginx`. 이 파드는
-   - `gpu=true:NoSchedule` taint를 **견딜 수 있어야** 하고,
-   - `disktype=ssd` label이 있는 노드에만 스케줄되어야 한다 (필수 조건, 선호가 아님).
-3. 파드 `plain-workload` 를 같은 이미지로 만든다. 아무 toleration도 주지 않는다.
-4. `gpu-workload` 는 `worker01` 에 뜨고, `plain-workload` 는 `worker01` 이 아닌 곳에 뜨는지 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 ```bash
 kubectl label node worker01 disktype=ssd
@@ -66,8 +43,6 @@ kubectl run plain-workload --image=nginx
 **toleration과 affinity는 역할이 다릅니다.** toleration은 "taint가 있어도 거부당하지 않게" 해 줄 뿐, 그 노드로 **끌어당기지는 않습니다**. 특정 노드에 반드시 보내려면 nodeAffinity(또는 nodeSelector)가 따로 필요합니다. 둘 중 하나만 쓰면 이 문제는 부분 점수입니다.
 
 간단히 label만으로 충분하다면 affinity 대신 `nodeSelector: {disktype: ssd}` 도 정답입니다.
-
-</details>
 
 ## 검증
 

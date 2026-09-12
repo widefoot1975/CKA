@@ -1,33 +1,8 @@
-# q02 — etcd 스냅샷 백업 후 복구
+# q02 — Back up and restore etcd from a snapshot · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Cluster Architecture, Installation & Configuration (25%) |
-| 배점 | 8 |
-| 컨텍스트 | 컨트롤 플레인 노드에 ssh 접속 후 root |
-| 목표 시간 | 12분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-컨트롤 플레인 노드의 stacked etcd를 대상으로 다음을 수행한다.
-
-1. etcd 스냅샷을 `/opt/etcd-backup.db` 에 저장한다.
-2. 스냅샷을 찍은 뒤 임의의 ConfigMap을 하나 만들어 둔다 (복구 확인용).
-3. 저장한 스냅샷을 `/var/lib/etcd-restore` 로 복구하고, etcd 정적 파드가 그 디렉터리를 쓰도록 바꾼다.
-4. 클러스터가 정상 동작하고, **2번에서 만든 ConfigMap이 사라졌음**을 확인한다.
-
-인증서 경로는 외우지 말고 매니페스트에서 찾아낸다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 **인증서·데이터 경로 확인**
 
@@ -68,8 +43,6 @@ vi /etc/kubernetes/manifests/etcd.yaml
 ```
 
 저장하면 kubelet이 매니페스트 변경을 감지해 etcd 파드를 재생성합니다. 1~2분 걸립니다.
-
-</details>
 
 ## 검증
 

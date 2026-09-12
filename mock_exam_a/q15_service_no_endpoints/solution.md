@@ -1,30 +1,8 @@
-# q15 — Service에 Endpoints가 안 잡히는 문제
+# q15 — A Service with no Endpoints · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Troubleshooting (30%) |
-| 배점 | 6 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 8분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`shop` 네임스페이스의 Service `catalog-svc` 로 접근하면 응답이 없다. 파드는 모두 `Running` 이다.
-
-1. `kubectl get endpoints catalog-svc` 가 비어 있는 이유를 찾는다.
-2. 파드나 Deployment를 다시 만들지 않고 고친다.
-3. Service 이름으로 접근이 되는지 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 진단 순서가 답입니다</summary>
+## 모범 풀이
 
 Endpoints가 비어 있다는 것은 **Service의 selector가 어떤 파드도 고르지 못했다**는 뜻입니다. 원인은 거의 셋 중 하나입니다.
 
@@ -56,8 +34,6 @@ kubectl -n shop patch svc catalog-svc -p '{"spec":{"ports":[{"port":8080,"target
 ```
 
 **Ready가 아닌 파드는 Endpoints에 들어가지 않습니다.** `Running` 이지만 `READY 0/1` 이면 readinessProbe가 실패하는 것이고, 이 경우 selector는 맞아도 Endpoints가 빕니다. `Running` 만 보고 정상이라 판단하면 이 케이스를 놓칩니다.
-
-</details>
 
 ## 검증
 

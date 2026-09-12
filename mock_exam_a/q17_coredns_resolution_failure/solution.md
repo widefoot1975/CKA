@@ -1,30 +1,8 @@
-# q17 — CoreDNS 이름 해석 실패
+# q17 — CoreDNS name resolution failure · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Troubleshooting (30%) |
-| 배점 | 5 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 8분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-파드 안에서 Service 이름으로 접근하면 이름 해석이 실패한다. Service의 ClusterIP로 직접 접근하면 정상이다.
-
-1. DNS 해석이 실패하는 원인을 찾는다.
-2. 클러스터 DNS를 복구한다.
-3. 임시 파드에서 `nslookup kubernetes.default` 가 성공하는 것을 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 진단 순서가 답입니다</summary>
+## 모범 풀이
 
 ClusterIP로는 되고 이름으로는 안 된다면 **네트워크가 아니라 DNS 문제**로 범위가 이미 좁혀졌습니다.
 
@@ -66,8 +44,6 @@ kubectl -n kube-system rollout status deploy coredns
 ```
 
 `kube-dns` 라는 **Service 이름은 그대로 유지**되고 그 뒤의 파드만 CoreDNS로 바뀌었습니다. 그래서 Service는 `kube-dns`, Deployment는 `coredns` 입니다 — 이름이 어긋나 보여도 정상입니다.
-
-</details>
 
 ## 검증
 

@@ -1,34 +1,8 @@
-# q07 — ConfigMap·Secret을 env와 volume으로 주입
+# q07 — Inject a ConfigMap and Secret as env vars and a volume · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Workloads & Scheduling (15%) |
-| 배점 | 5 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 7분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`app` 네임스페이스에서 다음을 만든다.
-
-1. ConfigMap `app-config`: `APP_MODE=production`, `LOG_LEVEL=warn`
-2. Secret `db-credentials`: `DB_USER=admin`, `DB_PASSWORD=s3cr3t`
-3. 파드 `configured-app` (이미지 `nginx`):
-   - ConfigMap의 **모든 키를 환경 변수로** 주입
-   - Secret의 `DB_PASSWORD` 만 환경 변수 `DATABASE_PASSWORD` 로 주입
-   - Secret 전체를 `/etc/db` 경로에 **볼륨으로 마운트** (읽기 전용)
-4. 파드 안에서 환경 변수와 마운트된 파일을 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 ```bash
 kubectl create namespace app
@@ -78,8 +52,6 @@ kubectl apply -f configured-app.yaml
 ```
 
 `envFrom` 은 전체 주입, `env[].valueFrom` 은 키 하나를 골라 이름까지 바꿀 때 씁니다. 문제가 "모든 키" 라고 하면 `envFrom`, "이 키를 이 이름으로" 라고 하면 `valueFrom`.
-
-</details>
 
 ## 검증
 

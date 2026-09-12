@@ -1,33 +1,8 @@
-# q09 — Ingress 경로 기반 라우팅
+# q09 — Path-based routing with an Ingress · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Services & Networking (20%) |
-| 배점 | 7 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 9분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`web` 네임스페이스에 Ingress 컨트롤러가 이미 설치되어 있다고 가정한다.
-
-1. Deployment `api` (이미지 `nginx`)와 `ui` (이미지 `nginx`)를 각각 replicas 2로 만들고, 각각 ClusterIP Service `api-svc`, `ui-svc` 로 포트 80에 노출한다.
-2. Ingress `app-ingress` 를 만든다. 호스트는 `shop.example.com`.
-   - `/api` 로 오는 요청은 `api-svc:80` 으로
-   - `/` 로 오는 요청은 `ui-svc:80` 으로
-3. `pathType` 은 `Prefix` 를 쓴다.
-4. 주소가 할당되었는지, 규칙이 의도대로 들어갔는지 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 ```bash
 kubectl create namespace web
@@ -79,8 +54,6 @@ spec:
 ```
 
 더 구체적인 경로(`/api`)를 먼저 두는 것이 안전합니다. `ingressClassName` 을 요구하는 문제라면 `--class=nginx` 를 추가합니다.
-
-</details>
 
 ## 검증
 

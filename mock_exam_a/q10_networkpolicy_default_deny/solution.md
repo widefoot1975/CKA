@@ -1,30 +1,8 @@
-# q10 — NetworkPolicy default deny + 선택 허용
+# q10 — Default-deny NetworkPolicy with a selective allow · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Services & Networking (20%) |
-| 배점 | 6 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 9분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`prod` 네임스페이스에 label `app=db` 인 파드와 `app=api`, `app=web` 인 파드가 있다.
-
-1. `prod` 네임스페이스의 **모든 파드에 대해 들어오는 트래픽(ingress)을 전부 차단**하는 NetworkPolicy `default-deny-ingress` 를 만든다.
-2. 그 위에 `allow-api-to-db` 정책을 추가한다. `app=db` 파드에 대해 **`app=api` 인 파드에서 TCP 5432 포트로 들어오는 요청만** 허용한다.
-3. `app=web` 파드에서 db로는 접근이 안 되고, `app=api` 파드에서는 접근이 되는지 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 **1) default deny** — `podSelector: {}` 가 "이 네임스페이스의 모든 파드", `policyTypes: [Ingress]` 에 규칙이 하나도 없으면 전부 차단입니다.
 
@@ -81,8 +59,6 @@ NetworkPolicy는 **화이트리스트를 더하는 방식**입니다. deny 정�
 ```
 
 하이픈 하나 차이로 교집합/합집합이 바뀝니다. 시험에서 자주 감점되는 지점입니다.
-
-</details>
 
 ## 검증
 

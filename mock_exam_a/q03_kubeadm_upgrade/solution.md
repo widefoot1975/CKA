@@ -1,31 +1,8 @@
-# q03 — kubeadm 클러스터 업그레이드
+# q03 — Upgrade a kubeadm cluster · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Cluster Architecture, Installation & Configuration (25%) |
-| 배점 | 6 |
-| 컨텍스트 | `kubectl config use-context k8s-c2` + 노드 ssh |
-| 목표 시간 | 12분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-클러스터를 한 마이너 버전 올린다 (예: v1.34 → v1.35).
-
-1. 컨트롤 플레인 노드 `cp01` 을 먼저 업그레이드한다. **kubelet과 kubectl도 함께** 올린다.
-2. 워커 노드 `worker01` 을 업그레이드한다.
-3. 업그레이드 중 워크로드가 해당 노드에서 비워지도록 처리하고, 끝나면 다시 스케줄 가능 상태로 돌린다.
-4. 모든 노드가 목표 버전으로 `Ready` 인지 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 **0) 저장소를 새 마이너 버전으로 먼저 바꿔야 합니다.** 이걸 빼면 새 버전 패키지가 아예 보이지 않습니다 — 가장 흔한 실수입니다.
 
@@ -74,8 +51,6 @@ systemctl daemon-reload && systemctl restart kubelet
 # 컨트롤 플레인에서
 kubectl uncordon worker01
 ```
-
-</details>
 
 ## 검증
 

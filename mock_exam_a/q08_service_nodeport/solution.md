@@ -1,30 +1,8 @@
-# q08 — Service를 NodePort로 노출
+# q08 — Expose a Deployment through a NodePort Service · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Services & Networking (20%) |
-| 배점 | 7 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 7분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-1. `shop` 네임스페이스에 Deployment `catalog` 를 만든다. 이미지 `nginx`, replicas 3, 컨테이너 포트 80.
-2. 이 Deployment를 `catalog-svc` 라는 **NodePort** Service로 노출한다.
-   - Service 포트는 `8080`, 타깃 포트는 `80`, 노드 포트는 `30080` 으로 고정한다.
-3. Service의 Endpoints에 파드 IP 3개가 잡히는지 확인한다.
-4. 클러스터 내부에서 Service 이름으로, 그리고 노드 IP:30080 으로 각각 접근해 응답을 확인한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 직접 풀고 나서 펼치세요</summary>
+## 모범 풀이
 
 ```bash
 kubectl create namespace shop
@@ -62,8 +40,6 @@ spec:
 ```
 
 세 포트의 의미를 구분하세요. `port` 는 Service, `targetPort` 는 파드 안 컨테이너, `nodePort` 는 노드 외부.
-
-</details>
 
 ## 검증
 

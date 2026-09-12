@@ -1,30 +1,8 @@
-# q14 — CrashLoopBackOff 원인 분석
+# q14 — Diagnose a CrashLoopBackOff pod · 풀이
 
-| 항목 | 내용 |
-|---|---|
-| 회차 | mock_exam_a |
-| 도메인 | Troubleshooting (30%) |
-| 배점 | 7 |
-| 컨텍스트 | `kubectl config use-context k8s-c1` |
-| 목표 시간 | 9분 |
-| 결과 | ☐ 정답 ☐ 부분 ☐ 오답 |
+← 문제: **[question.md](question.md)**
 
-## 문제
-
-`app` 네임스페이스의 Deployment `payment` 의 파드가 `CrashLoopBackOff` 를 반복한다.
-
-1. 원인을 찾아 기록한다.
-2. 파드가 정상적으로 `Running` 상태를 유지하도록 고친다.
-3. 무엇을 바꿨는지, 왜 그게 원인이었는지 한 줄로 정리한다.
-
-## 내 풀이
-
-```bash
-
-```
-
-<details>
-<summary><b>모범 풀이</b> — 진단 순서가 답입니다</summary>
+## 모범 풀이
 
 ```bash
 # 1) 상태와 재시작 횟수
@@ -67,8 +45,6 @@ kubectl -n app edit deploy payment
 ```
 
 **CrashLoopBackOff 는 원인이 아니라 결과**입니다. "재시작을 반복하고 있다"는 상태일 뿐이라, `--previous` 로그와 Exit Code를 보지 않으면 아무것도 알 수 없습니다.
-
-</details>
 
 ## 검증
 
