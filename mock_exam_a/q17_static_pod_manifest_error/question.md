@@ -6,7 +6,8 @@
 | Domain | Troubleshooting (30%) |
 | Points | 5 |
 | Context | ssh to the control plane node `cp01`, then become root |
-| Target time | 8 min |
+| Target time | 7 min |
+| Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task

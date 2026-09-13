@@ -6,7 +6,8 @@
 | Domain | Cluster Architecture, Installation & Configuration (25%) |
 | Points | 7 |
 | Context | `kubectl config use-context k8s-c2` + ssh to the nodes |
-| Target time | 13 min |
+| Target time | 7 min |
+| Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task

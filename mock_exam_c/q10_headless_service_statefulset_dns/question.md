@@ -6,7 +6,8 @@
 | Domain | Servicing & Networking (20%) |
 | Points | 7 |
 | Context | `kubectl config use-context k8s-c1` |
-| Target time | 12 min |
+| Target time | 7 min |
+| Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task

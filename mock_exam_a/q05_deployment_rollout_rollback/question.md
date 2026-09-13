@@ -6,7 +6,8 @@
 | Domain | Workloads & Scheduling (15%) |
 | Points | 5 |
 | Context | `kubectl config use-context k8s-c1` |
-| Target time | 8 min |
+| Target time | 5 min |
+| Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task

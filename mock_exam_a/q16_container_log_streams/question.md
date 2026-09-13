@@ -6,7 +6,8 @@
 | Domain | Troubleshooting (30%) |
 | Points | 6 |
 | Context | `kubectl config use-context k8s-c1` + ssh to the node running the pod |
-| Target time | 9 min |
+| Target time | 8 min |
+| Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task

@@ -6,7 +6,8 @@
 | Domain | Troubleshooting (30%) |
 | Points | 6 |
 | Context | `kubectl config use-context k8s-c1` + ssh to node `worker01`, then become root |
-| Target time | 10 min |
+| Target time | 8 min |
+| Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task

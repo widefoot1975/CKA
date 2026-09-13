@@ -6,7 +6,8 @@
 | Domain | Cluster Architecture, Installation & Configuration (25%) |
 | Points | 6 |
 | Context | ssh to node `worker03`, then become root |
-| Target time | 10 min |
+| Target time | 6 min |
+| Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task
