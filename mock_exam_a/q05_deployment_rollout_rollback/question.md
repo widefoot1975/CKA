@@ -1,4 +1,4 @@
-# q05 — Deployment rolling update and rollback
+# q05 — Rolling update, pause and roll back a Deployment
 
 | Item | Value |
 |---|---|
@@ -6,19 +6,23 @@
 | Domain | Workloads & Scheduling (15%) |
 | Points | 5 |
 | Context | `kubectl config use-context k8s-c1` |
-| Target time | 6 min |
+| Target time | 8 min |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task
 
-In the `web` namespace, do the following.
+Namespace `apps` serves a web tier that must never drop below its declared capacity
+during an update.
 
-1. Create a Deployment named `frontend` with image `nginx:1.25` and 4 replicas.
-2. Configure the update strategy so that **at most 1 pod is unavailable and at most 1
-   extra pod is created** during an update.
-3. Update the image to `nginx:1.26` and check the rollout status.
-4. Update once more to the non-existent tag `nginx:9.9.9`, confirm the rollout stalls,
-   then **roll back to the last working revision**.
+1. Create a Deployment `web` in `apps` with 4 replicas of `nginx:1.25`, then set its
+   strategy to `RollingUpdate` with `maxSurge: 1` and `maxUnavailable: 0`.
+2. Roll it out to `nginx:1.26` and make `bump to 1.26` appear as the change cause in the
+   rollout history.
+3. Pause the rollout, change the image to `nginx:1.27`, and show that no new ReplicaSet is
+   scaled up while paused. Then resume and wait for the rollout to finish.
+4. Print the revision history, inspect revision 1, then roll back to the revision running
+   `nginx:1.25`.
+5. Confirm the running image and that the rollout is complete.
 
 ## My attempt
 

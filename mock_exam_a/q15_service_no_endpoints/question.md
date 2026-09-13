@@ -1,4 +1,4 @@
-# q15 — A Service with no Endpoints
+# q15 — A Service with no endpoints
 
 | Item | Value |
 |---|---|
@@ -6,17 +6,21 @@
 | Domain | Troubleshooting (30%) |
 | Points | 6 |
 | Context | `kubectl config use-context k8s-c1` |
-| Target time | 8 min |
+| Target time | 9 min |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task
 
-Requests to the Service `catalog-svc` in the `shop` namespace get no response, even though
-all pods are `Running`.
+Service `api-svc` in namespace `shop` accepts connections but every client gets
+`connection refused`. Three pods of Deployment `api` are running.
 
-1. Find out why `kubectl get endpoints catalog-svc` is empty.
-2. Fix it **without** recreating the pods or the Deployment.
-3. Confirm the Service is reachable by name.
+1. Show that the Service has no endpoints, once through its Endpoints object and once
+   through its EndpointSlice.
+2. Compare the Service selector against the labels actually present on the pods.
+3. Report whether the pods are `Ready`.
+4. Compare the Service `targetPort` against the port the container actually listens on.
+5. Fix the Service so three endpoints appear. Do not relabel, restart or recreate the pods.
+6. Write in one line the two independent reasons an endpoint list can be empty.
 
 ## My attempt
 
