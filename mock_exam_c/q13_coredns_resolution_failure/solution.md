@@ -36,7 +36,7 @@ nslookup kubernetes.default 10.96.0.10
 ```bash
 # 서비스와 엔드포인트
 kubectl -n kube-system get svc kube-dns            # CLUSTER-IP 가 resolv.conf 의 값과 같은지
-kubectl -n kube-system get ep kube-dns             # 비어 있으면 파드가 Ready 가 아니다
+kubectl -n kube-system get endpointslice -l kubernetes.io/service-name=kube-dns   # 비어 있으면 파드가 Ready 가 아니다
 
 # CoreDNS 파드
 kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide
@@ -51,7 +51,7 @@ kubectl -n kube-system get cm coredns -o yaml
 
 | 관찰 | 원인 | 조치 |
 |---|---|---|
-| `ep kube-dns` 가 `<none>` | CoreDNS 파드가 0개 또는 Ready 아님 | 아래 행들로 계속 |
+| kube-dns EndpointSlice 가 비어 있음 | CoreDNS 파드가 0개 또는 Ready 아님 | 아래 행들로 계속 |
 | CoreDNS `Pending` | 컨트롤 플레인 테인트만 있는 클러스터에서 레플리카 배치 실패, 리소스 부족 | `describe pod` 의 Events, 노드 여유 확인 |
 | CoreDNS `CrashLoopBackOff`, 로그에 `plugin/errors ... Corefile:N` | Corefile 문법 오류 | ConfigMap 수정 후 파드 재시작 |
 | CoreDNS 로그에 `Loop ... detected` | upstream이 자기 자신을 가리킴 (`forward . /etc/resolv.conf` + 노드 resolv.conf가 127.0.0.53) | `forward . 8.8.8.8` 등 실제 upstream으로 |
@@ -127,8 +127,8 @@ echo "coredns ConfigMap의 Corefile 문법 오류로 CoreDNS 파드가 CrashLoop
 ```bash
 kubectl -n kube-system get pods -l k8s-app=kube-dns
 # 2/2 Running, RESTARTS 증가 멈춤
-kubectl -n kube-system get ep kube-dns
-# ENDPOINTS 에 CoreDNS 파드 IP:53 두 개
+kubectl -n kube-system get endpointslice -l kubernetes.io/service-name=kube-dns
+# ENDPOINTS 에 CoreDNS 파드 IP 두 개
 
 kubectl run v --rm -it --image=busybox:1.36 --restart=Never -- \
   nslookup kubernetes.default.svc.cluster.local
@@ -145,7 +145,7 @@ cat /opt/course/q13/cause.txt
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
-- **기억할 것**: 파드 IP는 되고 이름만 안 되면 DNS. 순서는 파드 `/etc/resolv.conf` → `ep kube-dns` → CoreDNS 파드 → Corefile.
+- **기억할 것**: 파드 IP는 되고 이름만 안 되면 DNS. 순서는 파드 `/etc/resolv.conf` → kube-dns EndpointSlice → CoreDNS 파드 → Corefile.
 - **헷갈리는 지점**: 서비스 이름은 `kube-dns` 인데 실행되는 파드는 CoreDNS입니다 (구버전 kube-dns와의
   호환을 위해 서비스 이름을 유지). 그래서 셀렉터도 `k8s-app=kube-dns` 이고 `k8s-app=coredns` 가
   아닙니다. 이걸 모르면 파드를 못 찾습니다. 또 내부 이름만 실패하는지 외부까지 실패하는지가

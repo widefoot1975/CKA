@@ -62,8 +62,14 @@ spec:
 
 ```bash
 kubectl apply -f q10.yaml
-kubectl -n data expose sts db --name=db-rw --port=5432 --target-port=5432
+
+# db-rw — kubectl expose 는 StatefulSet 을 지원하지 않으므로 서비스를 만들고 셀렉터를 바꾼다
+kubectl -n data create service clusterip db-rw --tcp=5432:5432    # 셀렉터가 app=db-rw 로 만들어진다
+kubectl -n data set selector svc db-rw app=db
 ```
+
+`kubectl expose` 가 받는 대상은 pod, service, rc, deployment, replicaset뿐입니다. `expose sts` 는
+에러가 나므로 `create service` + `set selector` 로 만들거나 yaml을 씁니다.
 
 **3) 조회**
 
@@ -120,15 +126,17 @@ kubectl -n data run v2 --rm -it --image=busybox:1.36 --restart=Never -- \
   nslookup db | grep -c Address                # 파드 수 + 1 (서버 줄 포함)
 
 cat /opt/course/q10/fqdn.txt
-kubectl -n data get ep db                      # 파드 IP 3개 (헤드리스도 엔드포인트는 만든다)
+kubectl -n data get endpointslice -l kubernetes.io/service-name=db   # 파드 IP 3개 (헤드리스도 EndpointSlice는 만든다)
 ```
 
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
 - **기억할 것**: 파드 DNS는 `<pod>.<serviceName>.<ns>.svc.cluster.local`. StatefulSet 이름이 아니라 `spec.serviceName` 이다.
-- **헷갈리는 지점**: `kubectl expose` 로는 헤드리스 서비스를 만들 수 없습니다 — `--cluster-ip=None`
-  플래그가 있지만 yaml로 `clusterIP: None` 을 쓰는 편이 확실합니다. 그리고 `serviceName` 에
+- **헷갈리는 지점**: 헤드리스 서비스도 명령형으로 만들 수 있습니다 —
+  `kubectl -n data create service clusterip db --clusterip=None --tcp=5432:5432` (셀렉터가 `app=<이름>` 으로
+  자동 설정되므로 여기선 `app=db` 와 맞는다. Deployment가 대상이면 `expose deploy ... --cluster-ip=None`).
+  다만 이 문제처럼 포트 이름(`pg`)까지 지정해야 하면 yaml이 확실합니다. 그리고 `serviceName` 에
   존재하지 않는 서비스를 적어도 StatefulSet은 정상적으로 생성되고 파드도 뜹니다. DNS만 조용히
   안 되므로 오브젝트 상태만 보면 발견되지 않습니다.
 

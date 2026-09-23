@@ -3,9 +3,9 @@
 | Item | Value |
 |---|---|
 | Exam | mock_exam_a |
-| Domain | Servicing & Networking (20%) |
+| Domain | Services & Networking (20%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 6 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |

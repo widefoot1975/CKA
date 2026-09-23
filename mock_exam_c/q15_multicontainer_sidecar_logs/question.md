@@ -5,7 +5,7 @@
 | Exam | mock_exam_c |
 | Domain | Troubleshooting (30%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 8 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
@@ -13,10 +13,13 @@
 ## Task
 
 Namespace `obs` contains pod `tracker` with containers `app`, `shipper` and an init
-container `setup`. `kubectl logs tracker` returns an error.
+container `setup`. A colleague ran `kubectl logs tracker`, got output without any error,
+and concluded that `shipper` is healthy.
 
-1. Explain why the plain `kubectl logs tracker` fails and list the pod's containers
-   without reading the whole manifest.
+1. Report which container the plain `kubectl logs tracker` actually printed and why, and
+   list the pod's containers (including the init container) without reading the whole
+   manifest. Then make `shipper` the container a plain `kubectl logs tracker` shows,
+   without recreating the pod.
 2. Write the last 20 lines of the `app` container's log to
    `/opt/course/q15/app.log`.
 3. The `shipper` container restarted once. Write the log of its **previous** instance to

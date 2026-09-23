@@ -5,7 +5,7 @@
 | Exam | mock_exam_c |
 | Domain | Workloads & Scheduling (15%) |
 | Points | 5 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 5 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
@@ -16,7 +16,7 @@ All work goes in namespace `batch`.
 
 1. Create a Job `migrate` using `busybox:1.36` that runs
    `sh -c 'echo migrating; sleep 5; echo done'`. It must complete 4 times, with at most
-   2 pods running at once, give up after 3 failed attempts, and be killed if the whole
+   2 pods running at once, retry failed pods at most 3 times, and be killed if the whole
    Job exceeds 120 seconds.
 2. Create a Job `broken` that runs `sh -c 'exit 1'` with `backoffLimit: 2`. Show its
    final status and how many pods it created.

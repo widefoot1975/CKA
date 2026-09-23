@@ -5,14 +5,15 @@
 | Exam | mock_exam_b |
 | Domain | Storage (10%) |
 | Points | 5 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 5 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task
 
-The cluster has one StorageClass, which is the default and does not allow expansion.
+The cluster has one StorageClass, which is the default and does not allow expansion. Its
+CSI driver supports online volume expansion.
 
 1. Create a StorageClass named `fast-expand` reusing the **same provisioner** as the
    existing default class, with `allowVolumeExpansion: true`,

@@ -5,7 +5,7 @@
 | Exam | mock_exam_a |
 | Domain | Troubleshooting (30%) |
 | Points | 5 |
-| Context | ssh to the control plane node `cp01`, then become root |
+| Host | `ssh k8s-c1` → `ssh cp01`, then `sudo -i` (kubectl will not answer) |
 | Target time | 7 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |

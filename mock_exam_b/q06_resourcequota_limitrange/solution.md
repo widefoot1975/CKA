@@ -89,10 +89,22 @@ kubectl -n team-a describe quota team-a-quota
 # requests.cpu     100m   1
 # requests.memory  128Mi  1Gi
 
-# max 검증이 실제로 걸리는지 확인
-kubectl -n team-a run big --image=nginx:1.27 --limits=cpu=900m
+# max 검증이 실제로 걸리는지 확인 — kubectl run 에는 --limits/--requests 플래그가 없다
+kubectl -n team-a apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata: { name: big }
+spec:
+  containers:
+  - name: big
+    image: nginx:1.27
+    resources: { limits: { cpu: 900m } }
+EOF
 # Error ... maximum cpu usage per Container is 500m, but limit is 900m
 ```
+
+`kubectl run` 의 `--requests`/`--limits` 는 오래전에 제거되었습니다. 리소스가 필요한 파드는 yaml을
+쓰거나, Deployment라면 `kubectl set resources` 를 씁니다.
 
 ## 오답 원인 / 배운 점
 

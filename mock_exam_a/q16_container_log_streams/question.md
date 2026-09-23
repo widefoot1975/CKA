@@ -5,7 +5,7 @@
 | Exam | mock_exam_a |
 | Domain | Troubleshooting (30%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` + ssh to the node running the pod |
+| Host | `ssh k8s-c1` → `ssh <node running the pod>` for step 5 |
 | Target time | 8 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |

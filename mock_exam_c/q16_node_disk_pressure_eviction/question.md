@@ -5,7 +5,7 @@
 | Exam | mock_exam_c |
 | Domain | Troubleshooting (30%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` + ssh to `worker02`, then become root |
+| Host | `ssh k8s-c1` → `ssh worker02`, then `sudo -i` |
 | Target time | 8 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |

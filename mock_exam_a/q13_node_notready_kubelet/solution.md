@@ -50,7 +50,7 @@ crictl ps
 | `failed to run Kubelet: running with swap on is not supported` | swap이 켜짐 | `swapoff -a`, `/etc/fstab` 의 swap 줄 주석 |
 | `dial tcp <IP>:6443: connect: connection refused` | apiserver 주소 오류 또는 컨트롤 플레인 다운 | `/etc/kubernetes/kubelet.conf` 의 `server:` 확인 |
 | `Unauthorized`, `x509: certificate has expired` | kubelet 클라이언트 인증서 만료 | `kubeadm` 으로 재발급 / `kubelet.conf` 교체 |
-| `unknown flag: --xyz` | 유닛 드롭인의 인자 오류 | `/etc/systemd/system/kubelet.service.d/10-kubeadm.conf` 수정 |
+| `unknown flag: --xyz` | 유닛 드롭인의 인자 오류 | `systemctl cat kubelet` 로 드롭인(`10-kubeadm.conf`) 위치를 찾아 수정 |
 | `container runtime is down`, `connect: no such file or directory` (sock) | containerd 다운 또는 소켓 경로 오류 | `systemctl restart containerd` |
 | `Network plugin returns error: cni plugin not initialized` | CNI 미설치·손상 | CNI DaemonSet 파드 상태 확인 |
 
@@ -59,7 +59,7 @@ crictl ps
 ```bash
 cat /var/lib/kubelet/config.yaml                           # kubelet 설정 (staticPodPath 등)
 cat /etc/kubernetes/kubelet.conf                           # apiserver 접속용 kubeconfig
-cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf  # 유닛 드롭인 (실행 인자)
+systemctl cat kubelet                                      # 유닛 + 드롭인의 실제 경로와 내용 (패키지에 따라 /etc/systemd/... 또는 /usr/lib/systemd/...)
 cat /var/lib/kubelet/kubeadm-flags.env                     # 추가 인자
 
 systemctl daemon-reload        # 유닛 파일·드롭인을 고쳤으면 필수
@@ -84,10 +84,15 @@ kubectl get nodes -w                   # worker01  Ready  <none>  ...  v1.35.0
 kubectl describe node worker01 | grep -E 'Ready|Taints'
 # Ready  True  KubeletReady  kubelet is posting ready status
 # Taints: <none>            ← unreachable/not-ready taint가 사라져야 한다
-kubectl run probe --image=nginx:1.27 --overrides='{"spec":{"nodeName":"worker01"}}'
-kubectl get pod probe -o wide                   # worker01 에서 Running
+kubectl run probe --image=nginx:1.27 \
+  --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"worker01"}}}'
+kubectl get pod probe -o wide                   # worker01 에서 Running — 스케줄러가 배치했다
 kubectl get pods -A -o wide | grep worker01     # 기존 파드가 Terminating 을 벗어남
 ```
+
+"스케줄될 수 있는지"는 `nodeName` 으로 확인하면 안 됩니다. `nodeName` 을 직접 채우면 **스케줄러를
+건너뛰어** 남아 있는 `not-ready`/`unreachable` taint나 cordon 상태를 전혀 검사하지 않습니다.
+`nodeSelector`(또는 node affinity)로 노드를 지정해야 스케줄러가 실제로 판단합니다.
 
 ## 오답 원인 / 배운 점
 

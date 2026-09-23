@@ -5,7 +5,7 @@
 | Exam | mock_exam_c |
 | Domain | Workloads & Scheduling (15%) |
 | Points | 5 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 5 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
@@ -23,9 +23,9 @@ Namespace `shop` contains Deployment `api` with 3 replicas of `nginx:1.27`, labe
    `failureThreshold: 3`.
 4. Create a PodDisruptionBudget `api-pdb` for `app=api` that keeps at least 2 pods
    available.
-5. `/healthz` does not exist on the nginx image, so readiness will fail. Show the effect
-   on the Service `api` endpoints, then make readiness pass by pointing the probe at a
-   path that exists.
+5. `/healthz` does not exist on the nginx image, so readiness will fail. Show what happens
+   to the rollout and to the Service `api` endpoints, then make readiness pass by pointing
+   the probe at a path that exists and let the rollout finish.
 6. Attempt `kubectl drain` on the node holding two `api` pods and report what the PDB does.
 
 ## My attempt

@@ -23,7 +23,7 @@ ss -lntp | grep 6443                      # 아무것도 리스닝하지 않음
 curl -k https://localhost:6443/healthz    # Connection refused
 ```
 
-`connection refused` 는 "그 주소에 아무도 없다"는 뜻이므로 서버 쪽 문제입니다. kubeconfig 문제라면 연결은 되고 `Unauthorized`, `x509`, `Forbidden` 같은 응답이 옵니다. **연결 자체가 거부되면 파일이 아니라 프로세스를 봐야 합니다.**
+`connection refused` 는 "그 주소에 아무도 없다"는 뜻입니다. 인증서·사용자 같은 kubeconfig 문제라면 연결은 되고 `Unauthorized`, `x509`, `Forbidden` 같은 응답이 옵니다. 다만 kubeconfig의 `server` 주소나 포트가 틀려도 refused가 나므로, **`ss` 로 이 노드의 6443에 실제로 아무것도 없는지 확인하는 것이 결정적**입니다. 6443이 비어 있으면 파일이 아니라 프로세스를 봐야 합니다.
 
 **2) kubectl 없이 보기**
 

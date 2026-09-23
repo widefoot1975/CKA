@@ -13,8 +13,8 @@
    - `app-config` 의 모든 키를 한 블록으로 환경변수로 받는다
    - `db-cred` 의 `password` 키만 `DB_PASSWORD` 변수로 받는다
    - `db-cred` 을 `/etc/db` 에 읽기 전용으로 마운트한다
-   - `app.properties` 를 `/etc/app/app.properties` 에 마운트하되 `/etc/app` 의 다른 파일을 가리지 않는다
-5. 컨테이너 안에서 변수와 마운트된 파일을 확인하고, `/etc/app/app.properties` 마운트가 이후 `app-files` 수정을 반영하지 않는 이유를 한 줄로 적는다.
+   - `app.properties` 를 `/etc/nginx/app.properties` 에 마운트하되 `/etc/nginx` 에 있는 이미지 원래 파일을 가리지 않는다
+5. 컨테이너 안에서 변수와 마운트된 파일을 확인하고, `/etc/nginx/app.properties` 마운트가 이후 `app-files` 수정을 반영하지 않는 이유를 한 줄로 적는다.
 
 ## 모범 풀이
 
@@ -56,7 +56,7 @@ spec:
       mountPath: /etc/db
       readOnly: true
     - name: files
-      mountPath: /etc/app/app.properties
+      mountPath: /etc/nginx/app.properties
       subPath: app.properties
   volumes:
   - name: db
@@ -71,14 +71,14 @@ spec:
 
 | 방식 | 범위 | 이름 바꾸기 | 갱신 반영 |
 |---|---|---|---|
-| `envFrom.configMapRef` | ConfigMap의 모든 키 | 불가 (키 이름 그대로) | 안 됨 (재시작 필요) |
+| `envFrom.configMapRef` | ConfigMap의 모든 키 | 접두사만 (`prefix`) | 안 됨 (재시작 필요) |
 | `env[].valueFrom.secretKeyRef` | 키 하나 | 가능 (`DB_PASSWORD`) | 안 됨 (재시작 필요) |
 | volume 마운트 (디렉터리) | 모든 키가 각각 파일 | 가능 (`items`) | 됨 (수십 초 내) |
 | volume 마운트 + `subPath` | 키 하나가 파일 하나 | 가능 | **안 됨** |
 
-**`subPath` 마운트는 ConfigMap이 바뀌어도 갱신되지 않습니다.** 이게 이 문제의 함정입니다. 일반 볼륨 마운트는 kubelet이 심볼릭 링크를 갈아끼워 갱신을 전파하지만, `subPath` 는 볼륨 안의 특정 경로를 컨테이너의 한 파일에 직접 bind mount하므로 갈아끼울 링크가 없습니다. 그런데도 `subPath` 를 쓰는 이유는, `mountPath: /etc/app` 로 디렉터리째 마운트하면 `/etc/app` 에 원래 있던 이미지의 파일이 전부 가려지기 때문입니다.
+**`subPath` 마운트는 ConfigMap이 바뀌어도 갱신되지 않습니다.** 이게 이 문제의 함정입니다. 일반 볼륨 마운트는 kubelet이 심볼릭 링크를 갈아끼워 갱신을 전파하지만, `subPath` 는 볼륨 안의 특정 경로를 컨테이너의 한 파일에 직접 bind mount하므로 갈아끼울 링크가 없습니다. 그런데도 `subPath` 를 쓰는 이유는, `mountPath: /etc/nginx` 로 디렉터리째 마운트하면 그 디렉터리의 이미지 파일이 전부 가려지기 때문입니다. 여기서는 `nginx.conf` 까지 사라져 nginx가 `open() "/etc/nginx/nginx.conf" failed` 로 기동하지 못하고 CrashLoopBackOff에 빠집니다.
 
-`envFrom` 으로 들어가는 키 이름은 유효한 환경변수 이름이어야 합니다. `app.properties` 같은 키를 `envFrom` 으로 넣으면 그 키는 조용히 건너뛰어지고 파드에 경고 이벤트가 남습니다. 그래서 파일용 데이터는 별도 ConfigMap으로 분리했습니다.
+`envFrom` 은 키 이름을 그대로 환경변수 이름으로 씁니다. 점(`.`)과 `-` 는 원래 허용되는 문자이고, 1.34부터는 `=` 를 뺀 출력 가능한 ASCII가 거의 다 허용됩니다. 그래서 `app.properties` 키를 `envFrom` 으로 넣으면 건너뛰어지는 게 아니라 **`app.properties` 라는 이름의 환경변수**가 조용히 생깁니다. 셸에서는 참조하기도 어려운 쓸모없는 변수이므로, 파일용 데이터는 별도 ConfigMap으로 분리했습니다. 키 이름 앞에 공통 접두사를 붙이고 싶으면 `envFrom[].prefix` 를 씁니다.
 
 ## 검증
 
@@ -86,9 +86,9 @@ spec:
 kubectl -n web exec web-app -- env | grep -E 'APP_MODE|LOG_LEVEL|DB_PASSWORD'
 # APP_MODE=production / LOG_LEVEL=warn / DB_PASSWORD=S3cr3t!
 kubectl -n web exec web-app -- ls /etc/db             # password  username
-kubectl -n web exec web-app -- cat /etc/db/username   # appuser (평문으로 복호화되어 있음)
-kubectl -n web exec web-app -- cat /etc/app/app.properties   # timeout=30 / retries=3
-kubectl -n web exec web-app -- ls /etc/app            # 이미지의 기존 파일도 그대로 보인다
+kubectl -n web exec web-app -- cat /etc/db/username   # appuser (base64 가 디코딩된 평문)
+kubectl -n web exec web-app -- cat /etc/nginx/app.properties   # timeout=30 / retries=3
+kubectl -n web exec web-app -- ls /etc/nginx          # nginx.conf, conf.d, mime.types … 옆에 app.properties
 ```
 
 ## 오답 원인 / 배운 점

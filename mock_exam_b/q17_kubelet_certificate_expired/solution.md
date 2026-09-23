@@ -75,7 +75,13 @@ rm -f /var/lib/kubelet/pki/kubelet-client-*.pem
 systemctl restart kubelet
 ```
 
-원래대로 회전형으로 되돌리려면 bootstrap을 다시 태웁니다. `kubeadm token create` 로 토큰을 받아
+이렇게 하면 kubelet이 내장 인증서로 접속한 뒤 곧바로 새 인증서를 CSR로 받아
+`/var/lib/kubelet/pki/kubelet-client-current.pem` 을 다시 만듭니다. 공식 절차(kubeadm 트러블슈팅 문서)는
+그 파일이 생긴 뒤 `kubelet.conf` 의 `client-certificate-data`/`client-key-data` 를
+`client-certificate`/`client-key: /var/lib/kubelet/pki/kubelet-client-current.pem` 으로 바꾸고 kubelet을
+한 번 더 재시작하도록 안내합니다. 그래야 다음부터 회전된 인증서를 파일에서 읽습니다.
+
+다른 방법으로 bootstrap을 다시 태울 수도 있습니다. `kubeadm token create` 로 토큰을 받아
 `/etc/kubernetes/bootstrap-kubelet.conf` 에 `token:` 으로 넣고, `kubelet.conf` 와 만료된 pem을
 치운 뒤 kubelet을 재시작하면 kubelet이 CSR을 제출해 새 `kubelet.conf` 와
 `kubelet-client-current.pem` 을 **스스로 만듭니다.**
@@ -92,9 +98,9 @@ kubectl certificate approve csr-x7k2p
 **5단계 — 답.** `kubeadm certs renew all` 은 컨트롤 플레인 노드의 인증서와 `admin.conf`,
 `controller-manager.conf`, `scheduler.conf` 만 갱신합니다. 워커의 kubelet 클라이언트 인증서는
 kubelet의 회전 기능이 관리하는 대상이라 kubeadm이 손대지 않습니다 —
-`kubeadm certs check-expiration` 출력에서도 `kubelet.conf` 행에 "certificate is managed by
-kubelet rotation" 취지의 주석이 붙습니다. 게다가 그 명령은 **컨트롤 플레인 노드에서** 도는 것이라
-워커의 파일에 접근할 수도 없습니다.
+그래서 `kubeadm certs check-expiration` 목록에는 `kubelet.conf` 가 **아예 없습니다**(kubelet이
+`/var/lib/kubelet/pki` 의 인증서를 스스로 회전하도록 설정되어 있기 때문이라고 공식 문서가 설명합니다).
+게다가 그 명령은 **컨트롤 플레인 노드에서** 도는 것이라 워커의 파일에 접근할 수도 없습니다.
 
 ## 검증
 
@@ -114,7 +120,7 @@ kubectl logs -n kube-system <worker02의 파드>   # kubelet 10250 도 응답하
 
 - **왜 틀렸나**:
 - **기억할 것**: kubelet의 인증서 자동 회전은 만료 **전에만** 동작한다. 완전히 만료되면 bootstrap 토큰으로 CSR을 다시 받아야 하고, `kubeadm certs renew` 는 워커의 kubelet 인증서를 갱신하지 않는다.
-- **헷갈리는 지점**: 인증서가 두 종류입니다 — kubelet **client** 인증서(kubelet이 API server에 접속할 때 쓰는 신원, `kubelet-client-current.pem`)와 kubelet **serving** 인증서(API server나 metrics-server가 kubelet의 10250에 접속할 때 kubelet이 제시, `kubelet.crt`/`kubelet-server-current.pem`). client가 만료되면 노드가 NotReady가 되고, serving이 문제면 노드는 Ready인데 `kubectl logs`/`exec`/`top` 만 실패합니다. 증상이 다르므로 먼저 어느 쪽인지 가릅니다.
+- **헷갈리는 지점**: 인증서가 두 종류입니다 — kubelet **client** 인증서(kubelet이 API server에 접속할 때 쓰는 신원, `kubelet-client-current.pem`)와 kubelet **serving** 인증서(API server나 metrics-server가 kubelet의 10250에 접속할 때 kubelet이 제시, `kubelet.crt`/`kubelet-server-current.pem`). client가 만료되면 노드가 NotReady가 되고, serving이 문제면 노드는 Ready입니다. kubeadm 기본 설정의 API server는 kubelet serving 인증서를 검증하지 않아 `kubectl logs`/`exec` 는 보통 그대로 되고, 인증서를 검증하는 metrics-server(`kubectl top`) 쪽에서 먼저 드러납니다. 증상이 다르므로 먼저 어느 쪽인지 가릅니다.
 
 ## 참고 문서
 

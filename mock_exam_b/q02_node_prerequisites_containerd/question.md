@@ -5,7 +5,7 @@
 | Exam | mock_exam_b |
 | Domain | Cluster Architecture, Installation & Configuration (25%) |
 | Points | 6 |
-| Context | ssh to node `worker03`, then become root |
+| Host | `ssh k8s-c1` → `ssh worker03`, then `sudo -i` |
 | Target time | 6 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |

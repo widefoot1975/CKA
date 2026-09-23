@@ -29,16 +29,16 @@ kubectl -n logs logs -f $POD -c app
 kubectl -n logs logs $POD -c app --previous                    # 죽은 직전 인스턴스
 ```
 
-**컨테이너가 둘 이상이면 `-c` 는 선택이 아닙니다.** 생략하면 `error: a container name must be specified for pod ...` 가 나거나 기본 컨테이너 어노테이션이 있는 쪽으로 조용히 넘어갑니다.
+**컨테이너가 둘 이상이면 `-c` 는 선택이 아닙니다.** 생략해도 에러가 나지 않는다는 것이 함정입니다. kubectl은 `kubectl.kubernetes.io/default-container` 어노테이션이 가리키는 컨테이너, 없으면 **첫 번째 컨테이너**를 조용히 골라 보여 주고, stderr에 `Defaulted container "app" out of: app, shipper` 한 줄만 남깁니다. 엉뚱한 컨테이너의 로그를 읽고 결론을 내리는 사고가 여기서 납니다.
 
 **4) Deployment 로그와 모든 파드의 로그는 다릅니다**
 
 ```bash
 kubectl -n logs logs deploy/multi -c app          # 파드 하나만 골라서 보여준다
-kubectl -n logs logs -l app=multi -c app --prefix --max-log-requests=10
+kubectl -n logs logs -l app=multi -c app --prefix --tail=-1
 ```
 
-`kubectl logs deploy/X` 는 워크로드를 대신 지목하는 편의 문법일 뿐이고, 내부적으로 그 Deployment의 파드 **하나**를 골라 그 로그를 보여줍니다. 3개 파드 전부를 보려면 **라벨 셀렉터** `-l` 를 써야 합니다. `-l` 로 5개를 넘는 파드를 따라가려면 `--max-log-requests` 를 올려야 합니다(기본 5, 넘으면 에러).
+`kubectl logs deploy/X` 는 워크로드를 대신 지목하는 편의 문법일 뿐이고, 내부적으로 그 Deployment의 파드 **하나**를 골라 그 로그를 보여줍니다. 3개 파드 전부를 보려면 **라벨 셀렉터** `-l` 를 써야 합니다. 그런데 `-l` 을 쓰면 `--tail` 기본값이 **파드마다 10줄**로 바뀝니다(이름으로 지정하면 전체). 전부 보려면 `--tail=-1` 을 줍니다. 또 `-l` 과 `-f` 로 5개를 넘는 파드를 **따라가려면** `--max-log-requests` 를 올려야 합니다(기본 5, 넘으면 에러).
 
 **stdout과 stderr은 분리되지 않습니다.** kubelet은 컨테이너의 두 스트림을 한 로그 파일에 시간순으로 합쳐 기록하고, `kubectl logs` 에는 이를 나누는 옵션이 없습니다. 각 줄에 `stdout`/`stderr` 태그가 파일에는 들어 있지만 kubectl 출력에는 나오지 않습니다. 구분이 필요하면 애플리케이션이 다른 목적지로 써야 합니다.
 
@@ -62,7 +62,7 @@ crictl logs -p $CID                   # kubectl logs --previous 에 해당
 crictl pods --namespace logs
 ```
 
-`crictl` 은 apiserver를 거치지 않고 노드의 런타임 소켓에 직접 말합니다. **컨트롤 플레인이 죽어 `kubectl` 이 안 될 때 유일한 수단**입니다. 소켓 경로 경고가 나면 `--runtime-endpoint unix:///run/containerd/containerd.sock` 를 붙이거나 `/etc/crictl.yaml` 에 적어 둡니다.
+`crictl` 은 apiserver를 거치지 않고 노드의 런타임 소켓에 직접 말합니다. **컨트롤 플레인이 죽어 `kubectl` 이 안 될 때 쓰는 도구**입니다(위처럼 `/var/log/pods` 를 직접 읽는 방법과 함께). 소켓 경로 경고가 나면 `--runtime-endpoint unix:///run/containerd/containerd.sock` 를 붙이거나 `/etc/crictl.yaml` 에 적어 둡니다.
 
 **6) 사이드카 선언** — 네이티브 사이드카는 **`restartPolicy: Always` 를 가진 init container** 입니다.
 
@@ -94,8 +94,8 @@ crictl logs --tail 5 $(crictl ps -q --name app | head -1)
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
-- **기억할 것**: `kubectl logs deploy/X` 는 파드 **하나**만 본다. 전부 보려면 `-l <셀렉터>`.
-- **헷갈리는 지점**: `--previous`(직전에 죽은 인스턴스)와 `--since`(시간 범위)는 목적이 다릅니다. 재시작한 파드의 사고 원인은 `--since` 로는 안 나옵니다. 그리고 `-c` 는 로그를 읽을 컨테이너 선택이고 `--all-containers` 는 전부인데, 후자에 `-c` 를 같이 주면 무시됩니다. `/var/log/containers` 는 링크, 실체는 `/var/log/pods` 입니다.
+- **기억할 것**: `kubectl logs deploy/X` 는 파드 **하나**만 본다. 전부 보려면 `-l <셀렉터>`, 그리고 이때 기본 `--tail` 은 파드당 10줄이다. `-c` 를 빼면 에러 없이 기본(첫 번째) 컨테이너가 선택된다.
+- **헷갈리는 지점**: `--previous`(직전에 죽은 인스턴스)와 `--since`(시간 범위)는 목적이 다릅니다. 재시작한 파드의 사고 원인은 `--since` 로는 안 나옵니다. 그리고 `-c` 는 로그를 읽을 컨테이너 선택이고 `--all-containers` 는 전부라서, 둘을 같이 주면 `--all-containers=true should not be specified with container name` 에러가 납니다. `/var/log/containers` 는 링크, 실체는 `/var/log/pods` 입니다.
 
 ## 참고 문서
 

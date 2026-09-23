@@ -11,7 +11,7 @@
    CPU limit `200m` 을 준다.
 2. `web` 에 `autoscaling/v2` HorizontalPodAutoscaler `frontend-hpa` 를 만든다. 대상은
    `frontend` deployment, `minReplicas: 2`, `maxReplicas: 8`, 평균 CPU **utilization**
-   `60%` 기준으로 스케일한다.
+   `60%` 기준으로 스케일한다. 스케일 다운할 때는 안정화 구간(stabilization window) `30` 초를 쓴다.
 3. HPA의 `TARGETS` 열이 `<unknown>` 이 아닌 실제 퍼센트를 보이고 replica가 2로 안정되는지 확인한다.
 4. `averageUtilization` 메트릭이 계산되기 위해 먼저 성립해야 하는 두 가지 전제조건을
    `/opt/q05/answer.txt` 에 적는다.
@@ -31,14 +31,20 @@ kubectl -n web set resources deploy frontend \
 kubectl -n web get deploy frontend -o jsonpath='{.spec.template.spec.containers[*].name}'
 ```
 
-**2) HPA.** imperative 한 줄이면 끝나고, 최신 kubectl은 `autoscaling/v2` 오브젝트를 만듭니다.
+**2) HPA.** `kubectl autoscale` 로 뼈대를 만들 수 있지만 **`behavior` 는 명령형 플래그가 없습니다.**
+그래서 `--dry-run=client -o yaml` 로 뽑아 `behavior` 를 붙인 뒤 적용합니다.
 
 ```bash
-kubectl -n web autoscale deploy frontend --cpu-percent=60 --min=2 --max=8 --name=frontend-hpa
+kubectl -n web autoscale deploy frontend --cpu=60% --min=2 --max=8 --name=frontend-hpa \
+  --dry-run=client -o yaml > hpa.yaml
+# kubectl 1.34 이후 레퍼런스에서는 --cpu-percent 가 빠지고 --cpu(60% 또는 500m)/--memory 로 바뀌었다.
+# 더 오래된 kubectl 이면 --cpu-percent=60
+vi hpa.yaml        # spec 아래에 behavior 블록 추가
+kubectl apply -f hpa.yaml
 ```
 
-yaml로 쓸 때의 형태는 이렇습니다. `type: Resource` 와 `target.type: Utilization` 이 짝이고,
-`averageUtilization` 은 `target` **안**에 들어갑니다.
+완성된 형태입니다. `type: Resource` 와 `target.type: Utilization` 이 짝이고, `averageUtilization` 은
+`target` **안**에 들어갑니다.
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -60,7 +66,16 @@ spec:
       target:
         type: Utilization
         averageUtilization: 60
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 30
 ```
+
+**안정화 구간은 스케일 다운의 급한 반응을 막는 장치입니다.** HPA는 주기마다 권장 replica 수를
+계산하는데, 스케일 다운할 때는 **지난 구간(기본 300초) 동안의 권장값 중 가장 큰 값**을 씁니다. 부하가
+잠깐 꺼졌다고 바로 줄였다가 다시 늘리는 플래핑을 막기 위해서입니다. 30초로 줄이면 부하가 빠진 뒤
+더 빨리 줄어듭니다. 스케일 업의 기본 구간은 0초라서 즉시 반응합니다. 줄이는 속도 자체를 제한하려면
+`scaleDown.policies`(예: `type: Pods, value: 1, periodSeconds: 60`)를 함께 씁니다.
 
 **`<unknown>` 의 원인은 거의 항상 `requests` 누락입니다.** `Utilization` 은 실제 사용량을
 컨테이너의 **`requests.cpu` 로 나눈 비율**입니다. limit이 아닙니다. request가 없으면 나눌 값이
@@ -86,12 +101,13 @@ kubectl -n web describe hpa frontend-hpa | grep -A3 Conditions
 kubectl -n web get deploy frontend      # READY 2/2
 kubectl top pod -n web                  # metrics-server 가 살아있는지 교차 확인
 kubectl -n web get hpa frontend-hpa -o jsonpath='{.apiVersion}'   # autoscaling/v2
+kubectl -n web get hpa frontend-hpa -o jsonpath='{.spec.behavior.scaleDown.stabilizationWindowSeconds}{"\n"}'   # 30
 ```
 
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
-- **기억할 것**: `Utilization` 은 `requests` 대비 비율이다. `requests.cpu` 가 없으면 HPA는 영원히 `<unknown>` 이다.
+- **기억할 것**: `Utilization` 은 `requests` 대비 비율이다. `requests.cpu` 가 없으면 HPA는 영원히 `<unknown>` 이다. `behavior`(안정화 구간·정책)는 `kubectl autoscale` 로 못 넣으므로 `--dry-run=client -o yaml` 로 뽑아 추가한다.
 - **헷갈리는 지점**: `target.type` 의 세 값이 다릅니다 — `Utilization` 은 request 대비 퍼센트, `AverageValue` 는 파드당 절대값, `Value` 는 전체 합계 절대값. 그리고 `minReplicas: 2` 를 준 HPA는 deployment의 replica가 1이어도 즉시 2로 올립니다. HPA와 `kubectl scale` 을 동시에 쓰면 HPA가 이깁니다.
 
 ## 참고 문서

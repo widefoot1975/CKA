@@ -5,7 +5,7 @@
 | Exam | mock_exam_b |
 | Domain | Troubleshooting (30%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` + ssh to node `cp01`, then become root |
+| Host | `ssh k8s-c1` → `ssh cp01`, then `sudo -i` |
 | Target time | 8 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |

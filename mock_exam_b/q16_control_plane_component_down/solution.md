@@ -48,7 +48,7 @@ kubelet: E ... CreateContainerError: error mounting "/etc/kubernetes/scheduler.c
 | 증상 | 원인 | 확인 | 조치 |
 |---|---|---|---|
 | 파드가 API에 안 보임 | 매니페스트 yaml 파싱 실패 | `journalctl -u kubelet \| grep manifest` | 들여쓰기/키 수정 |
-| 파드가 API에 안 보임 | 파일명이 `.yaml`/`.json`/`.yml` 아님 | `ls /etc/kubernetes/manifests/` | 이름 복원 |
+| 파드가 API에 안 보임 | 매니페스트가 디렉터리 밖으로 옮겨졌거나 점(`.`)으로 시작하는 이름으로 바뀜 | `ls -la /etc/kubernetes/manifests/` | 위치·이름 복원 |
 | `crictl ps -a` 에 Exited | 잘못된 플래그 | `crictl logs <id>` | 플래그 수정 |
 | `CreateContainerError` | hostPath / kubeconfig 경로 오타 | `crictl ps -a` + kubelet 로그 | 경로 수정 |
 | `ImagePullBackOff` | 이미지 태그 오타 | `crictl images` | 태그 수정 |
@@ -72,13 +72,16 @@ vi /etc/kubernetes/manifests/kube-scheduler.yaml
     hostPath: {path: /etc/kubernetes/scheduler.conf, type: FileOrCreate}
 ```
 
-`type: FileOrCreate` 때문에 경로가 틀리면 kubelet이 **빈 파일을 만들어 버립니다.** 그러면 컨테이너는
-뜨지만 스케줄러가 `invalid configuration: no configuration has been provided` 로 즉시 죽습니다.
-"파일이 없다"는 에러가 아니라 "설정이 비었다"는 에러로 나타나기 때문에 경로 오타를 눈치채기
-어렵습니다. 파일 크기를 확인하는 습관이 필요합니다.
+`type: FileOrCreate` 때문에 **`hostPath.path` 쪽**이 틀리면 kubelet이 그 틀린 경로에 **빈 파일을
+만들어 마운트합니다.** 그러면 컨테이너는 뜨지만 스케줄러가 `invalid configuration: no configuration
+has been provided` 로 즉시 죽습니다. "파일이 없다"는 에러가 아니라 "설정이 비었다"는 에러로 나타나기
+때문에 경로 오타를 눈치채기 어렵습니다. (반대로 `--kubeconfig` 플래그 쪽이 틀리면 컨테이너 안에 그
+파일이 없어 `no such file or directory` 로 죽습니다.) 진짜 파일은 멀쩡하므로, **엉뚱한 곳에 생긴
+0바이트 파일**을 찾는 습관이 필요합니다.
 
 ```bash
-ls -l /etc/kubernetes/scheduler.conf     # 0 바이트면 kubelet 이 만든 가짜 파일이다
+ls -l /etc/kubernetes/*.conf       # 원래 파일들 옆에 0 바이트짜리(예: schduler.conf)가 보이면 그 경로가 오타다
+grep -n 'scheduler.conf' /etc/kubernetes/manifests/kube-scheduler.yaml   # 플래그와 hostPath 두 곳을 대조
 ```
 
 파일을 저장하면 kubelet이 변경을 감지해 **자동으로** 파드를 다시 만듭니다. 반응이 없을 때만:
@@ -87,9 +90,11 @@ ls -l /etc/kubernetes/scheduler.conf     # 0 바이트면 kubelet 이 만든 가
 systemctl restart kubelet
 ```
 
-디렉터리 안에서 `mv kube-scheduler.yaml kube-scheduler.yaml.bak` 로 "백업"하면 kubelet이
-`.bak` 은 무시하므로 **컴포넌트가 통째로 사라집니다.** etcd 백업/복구 문제에서 이 동작을 일부러
-쓰기도 하지만, 여기서는 실수로 그러면 안 됩니다.
+**백업을 매니페스트 디렉터리 안에 두면 안 됩니다.** kubelet은 확장자를 보지 않고 점(`.`)으로
+시작하지 않는 **모든 파일**을 매니페스트로 읽습니다. `cp kube-scheduler.yaml kube-scheduler.yaml.bak`
+처럼 같은 디렉터리에 백업하면 kubelet이 두 파일 모두에서 정적 파드를 만들려고 하고, 이름이 같아
+충돌합니다. 원본이 깨져 있으면 백업 쪽 정의가 대신 떠서 "고쳤는데 왜 그대로지?" 하는 상황도 생깁니다.
+정적 파드를 일부러 내리고 싶을 때(etcd 복구 등)는 파일을 **디렉터리 밖으로 옮깁니다.**
 
 **5단계 — 답.** 매니페스트는 `/etc/kubernetes/manifests/kube-scheduler.yaml` 이고, static pod은
 API server가 아니라 kubelet이 파일에서 직접 만들기 때문에 `kubectl delete pod` 로 지워도
@@ -103,7 +108,7 @@ kubectl -n kube-system get pod kube-scheduler-cp01
 # NAME                  READY   STATUS    RESTARTS   AGE
 # kube-scheduler-cp01   1/1     Running   0          40s
 
-kubectl get --raw='/readyz?verbose' | grep -i scheduler
+curl -sk https://127.0.0.1:10259/healthz; echo    # cp01 에서 — ok (스케줄러 자체의 헬스 엔드포인트)
 kubectl -n kube-system logs kube-scheduler-cp01 --tail=5 | grep -i 'leader\|serving'
 
 # 실제로 스케줄되는지
@@ -116,7 +121,7 @@ kubectl delete pod sched-test
 
 - **왜 틀렸나**:
 - **기억할 것**: static pod이 API에 아예 안 보이면 `journalctl -u kubelet` 이 유일한 단서다. `kubectl` 로는 존재하지 않는 파드를 조사할 수 없다.
-- **헷갈리는 지점**: `Pending` + 이벤트 없음 = 스케줄러가 없음, `Pending` + `FailedScheduling` 이벤트 = 스케줄러는 살아 있고 조건이 안 맞음. 완전히 다른 문제입니다. 그리고 static pod 매니페스트를 같은 디렉터리에서 `.bak` 으로 rename하면 백업이 아니라 삭제가 됩니다 — 반드시 디렉터리 밖으로 옮깁니다.
+- **헷갈리는 지점**: `Pending` + 이벤트 없음 = 스케줄러가 없음, `Pending` + `FailedScheduling` 이벤트 = 스케줄러는 살아 있고 조건이 안 맞음. 완전히 다른 문제입니다. 그리고 kubelet은 매니페스트 디렉터리의 `.bak` 파일도 읽으므로 백업은 반드시 디렉터리 밖에 둡니다. API server의 `/readyz` 에는 스케줄러 상태가 없으니 스케줄러 헬스는 노드에서 `:10259/healthz` 로 봅니다.
 
 ## 참고 문서
 

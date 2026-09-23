@@ -5,24 +5,29 @@
 | Exam | mock_exam_a |
 | Domain | Cluster Architecture, Installation & Configuration (25%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 6 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task
 
-Use Helm to install and manage a component in the `web` namespace.
+Use Helm to install cert-manager as a cluster component in namespace `cert-manager`.
+Write every answer file under `/root/helm/`.
 
-1. Add the chart repository `bitnami` at `https://charts.bitnami.com/bitnami` and refresh
-   the index.
-2. Save the chart's default values to `/tmp/nginx-values.yaml` **without installing
-   anything**.
-3. Install `bitnami/nginx` as release `frontend` into `web`, creating the namespace, with
-   `replicaCount` set to `2`.
-4. Upgrade the release to `replicaCount=4` **without losing the values already set**.
-5. Show the release history, roll back to revision 1, and confirm the replica count is 2
-   again.
+1. Add the chart repository `jetstack` at `https://charts.jetstack.io`, refresh the index,
+   and write the latest version of chart `jetstack/cert-manager` to
+   `/root/helm/version.txt`. Pass exactly that version with `--version` in every later step.
+2. Save the chart's default values to `/root/helm/values.yaml` **without installing
+   anything**, and write the names of the values that control CRD installation to
+   `/root/helm/crd-values.txt`.
+3. Install release `cert-manager` into `cert-manager`, creating the namespace, with the
+   CRDs installed by the chart and the controller running `2` replicas.
+4. Upgrade the release so the controller runs `3` replicas **without losing any value set
+   in step 3**. Show the release history, roll back to revision 1, and confirm the
+   controller is back to 2 replicas and the CRDs still exist.
+5. Using only `kubectl`, write the documentation of the field `spec.dnsNames` of the
+   `Certificate` resource to `/root/helm/dnsnames.txt`.
 
 ## My attempt
 

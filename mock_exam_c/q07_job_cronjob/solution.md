@@ -7,7 +7,7 @@
 모든 작업은 네임스페이스 `batch` 에서 한다.
 
 1. `busybox:1.36` 으로 `sh -c 'echo migrating; sleep 5; echo done'` 을 실행하는 Job `migrate` 를
-   만든다. 4번 완료해야 하고, 동시에 최대 2개 파드만 실행되며, 3번 실패하면 포기하고,
+   만든다. 4번 완료해야 하고, 동시에 최대 2개 파드만 실행되며, 실패한 파드는 최대 3번까지만 재시도하고,
    전체 Job이 120초를 넘으면 종료된다.
 2. `backoffLimit: 2` 로 `sh -c 'exit 1'` 을 실행하는 Job `broken` 을 만든다. 최종 상태와
    파드를 몇 개 만들었는지 보인다.
@@ -29,7 +29,7 @@ metadata:
 spec:
   completions: 4
   parallelism: 2
-  backoffLimit: 3
+  backoffLimit: 3                 # 재시도 3번 = 실패는 최대 4번까지 ("3번 실패하면 포기"라면 2)
   activeDeadlineSeconds: 120
   template:
     spec:

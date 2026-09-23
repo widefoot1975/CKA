@@ -29,10 +29,17 @@ echo br_netfilter > /etc/modules-load.d/k8s.conf
 sysctl net.ipv4.ip_forward                            # 0이면 아래로 수정
 printf 'net.ipv4.ip_forward=1\nnet.bridge.bridge-nf-call-iptables=1\n' > /etc/sysctl.d/k8s.conf
 sysctl --system
-grep -n SystemdCgroup /etc/containerd/config.toml     # false면 true로
+grep -n SystemdCgroup /etc/containerd/config.toml     # false면 true로. 줄이 아예 없으면 아래 한 줄로 기본 설정부터 만든다
+# containerd config default > /etc/containerd/config.toml
 sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
 systemctl restart containerd
+crictl info | grep -i systemdCgroup                   # true
 ```
+
+패키지로 설치한 containerd의 `/etc/containerd/config.toml` 은 없거나, CRI 플러그인을 끈
+(`disabled_plugins = ["cri"]`) 최소 설정일 수 있습니다. 그러면 `SystemdCgroup` 줄이 없어 `sed` 가 아무것도
+바꾸지 못하고, join은 preflight에서 `container runtime is not running` 으로 실패합니다. 그럴 때는 B-q02처럼
+`containerd config default` 로 기본 설정을 만든 뒤 고칩니다.
 
 **2~3) 토큰과 join 명령** (cp01, root)
 
@@ -77,8 +84,9 @@ kubectl label node worker03 node-role.kubernetes.io/worker=worker
 kubectl get nodes -o wide
 # worker03   Ready   worker   ...   v1.35.x
 
-kubectl run t1 --image=nginx --overrides='{"spec":{"nodeName":"worker03"}}'
-kubectl get pod t1 -o wide          # NODE 칼럼이 worker03, STATUS Running
+kubectl run t1 --image=nginx:1.27 \
+  --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"worker03"}}}'
+kubectl get pod t1 -o wide          # NODE 칼럼이 worker03, STATUS Running (nodeName 은 스케줄러를 건너뛰므로 쓰지 않는다)
 
 kubectl -n kube-system get pods -o wide | grep worker03
 # kube-proxy / CNI 데몬셋 파드가 새 노드에 떠 있어야 한다

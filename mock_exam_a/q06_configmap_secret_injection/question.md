@@ -5,7 +5,7 @@
 | Exam | mock_exam_a |
 | Domain | Workloads & Scheduling (15%) |
 | Points | 5 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 5 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
@@ -21,9 +21,10 @@ An application in namespace `web` takes its settings from the cluster, not from 
    - receives every key of `app-config` as an environment variable in one block
    - receives only the `password` key of `db-cred` as the variable `DB_PASSWORD`
    - mounts `db-cred` read-only at `/etc/db`
-   - mounts `app.properties` at `/etc/app/app.properties` without hiding `/etc/app`
+   - mounts `app.properties` at `/etc/nginx/app.properties` without hiding the image's own
+     files in `/etc/nginx`
 5. Show the variables and the mounted files from inside the container, and state in one
-   line why the `/etc/app/app.properties` mount will not see a later edit of `app-files`.
+   line why the `/etc/nginx/app.properties` mount will not see a later edit of `app-files`.
 
 ## My attempt
 

@@ -5,9 +5,9 @@
 ## 문제 (해석)
 
 `payments` 네임스페이스에 파드 `api`(label `app=api`, `8080` 리슨)와 `db`(label `app=db`,
-`5432` 리슨)가 있다. `frontend` 네임스페이스(label
-`kubernetes.io/metadata.name=frontend`)에 파드 `web`(label `app=web`)이, `scanner`
-네임스페이스에 파드 `probe`(label `app=web`)가 있다.
+`5432` 리슨)가 있고, 각각 Service `api`(포트 `8080`)와 `db`(포트 `5432`)로 노출되어 있다.
+`frontend` 네임스페이스(label `kubernetes.io/metadata.name=frontend`)에 파드 `web`(label
+`app=web`)이, `scanner` 네임스페이스에 파드 `probe`(label `app=web`)가 있다.
 
 파드를 건드리지 않고 `payments` 를 잠근다.
 
@@ -16,8 +16,10 @@
 2. `payments` 에 정책 `api-allow` 를 만들어 `app=api` 로 향하는 TCP `8080` ingress를
    **`frontend` 네임스페이스의** `app=web` 파드에서**만** 허용한다 — `scanner` 의 `probe` 는
    계속 막혀 있어야 한다.
-3. 같은 정책에서 `app=api` 가 `payments` 의 `app=db` 로 TCP `5432` 로 나가는 egress를 허용한다.
-4. `app=api` 의 DNS 조회를 허용한다(`kube-system` 쪽으로 UDP와 TCP `53`).
+3. 같은 정책에서 `app=api` 가 `payments` 의 `app=db` 로 TCP `5432` 로 나가는 egress와,
+   `app=api` 의 DNS 조회(`kube-system` 쪽으로 UDP와 TCP `53`)를 허용한다.
+4. `payments` 에 정책 `db-allow` 를 만들어 `app=db` 가 TCP `5432` 를 `app=api` 에게서**만**
+   받도록 한다.
 5. 확인한다: `web` 은 `api:8080` 에 닿고, `probe` 는 닿지 않으며, `api` 는 `db:5432` 에 닿고,
    `api` 가 `db.payments.svc.cluster.local` 을 해석하고, `api` 가 그 외로는 나가지 못한다.
 
@@ -76,7 +78,31 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow
+  namespace: payments
+spec:
+  podSelector:
+    matchLabels:
+      app: db
+  policyTypes: ["Ingress"]
+  ingress:
+  - from:
+    - podSelector:                     # namespaceSelector 없음 = 같은 네임스페이스(payments)
+        matchLabels:
+          app: api
+    ports:
+    - protocol: TCP
+      port: 5432
 ```
+
+**default deny는 연결의 양 끝을 모두 막습니다.** `api → db` 연결이 통과하려면 출발지 `api` 의
+**egress** 와 목적지 `db` 의 **ingress** 가 둘 다 열려 있어야 합니다. `default-deny-all` 이
+`db` 의 ingress까지 막고 있으므로, `api-allow` 에서 egress만 열고 `db-allow` 를 빼면 `nc` 가
+timeout 납니다. "나가는 쪽을 열었는데 왜 안 되지?"의 대부분이 반대쪽 ingress 누락입니다.
 
 **`-` 위치가 의미를 완전히 바꿉니다.** 위 ingress에서 `namespaceSelector` 와 `podSelector` 는
 `-` 하나를 공유하므로 **AND** 입니다 — "frontend 네임스페이스에 있고 동시에 app=web인 파드".
@@ -103,17 +129,17 @@ kubectl -n payments exec api -- nslookup db.payments.svc.cluster.local   # 해�
 # 차단 경로
 kubectl -n scanner exec probe -- curl -s --max-time 3 api.payments:8080
 # curl: (28) Connection timed out  ← 거부는 RST 가 아니라 timeout 으로 보인다
-kubectl -n frontend exec web -- curl -s --max-time 3 api.payments:9090   # timeout
+kubectl -n frontend exec web -- nc -zv -w 3 db.payments 5432             # timeout (db-allow)
 kubectl -n payments exec api -- curl -s --max-time 3 https://example.com # timeout
 
-kubectl -n payments describe netpol api-allow    # 규칙이 의도대로 파싱됐는지 확인
+kubectl -n payments describe netpol api-allow db-allow   # 규칙이 의도대로 파싱됐는지 확인
 ```
 
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
-- **기억할 것**: egress를 deny하면 DNS도 죽는다. `kube-system` 으로 UDP/TCP 53을 명시적으로 열어야 한다.
-- **헷갈리는 지점**: `from`/`to` 리스트에서 `-` 를 공유하면 AND, 각각 달면 OR입니다. `namespaceSelector: {}` 는 "모든 네임스페이스"이고 `podSelector: {}` 는 "이 네임스페이스의 모든 파드"인데, 빈 중괄호가 "아무것도 아님"처럼 보여서 반대로 읽기 쉽습니다. NetworkPolicy는 거부를 TCP RST가 아니라 패킷 드롭으로 처리하므로 증상이 `connection refused` 가 아니라 timeout입니다.
+- **기억할 것**: default deny 아래에서 A→B 연결은 A의 egress와 B의 ingress를 **둘 다** 열어야 통과한다. egress를 deny하면 DNS도 죽으므로 `kube-system` 으로 UDP/TCP 53을 명시적으로 연다.
+- **헷갈리는 지점**: `from`/`to` 리스트에서 `-` 를 공유하면 AND, 각각 달면 OR입니다. `namespaceSelector: {}` 는 "모든 네임스페이스"이고 `podSelector: {}` 는 "이 네임스페이스의 모든 파드"인데, 빈 중괄호가 "아무것도 아님"처럼 보여서 반대로 읽기 쉽습니다. 거부 방식(드롭/거절)은 CNI 구현에 달렸지만 대부분 패킷을 드롭하므로 증상이 `connection refused` 가 아니라 timeout입니다.
 
 ## 참고 문서
 

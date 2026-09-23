@@ -5,7 +5,7 @@
 | Exam | mock_exam_c |
 | Domain | Cluster Architecture, Installation & Configuration (25%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 6 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
@@ -22,10 +22,12 @@ the controller Deployment.
 3. The controller Deployment `backup-operator` comes up but its log repeatedly shows
    `backups.telco.io is forbidden: cannot list resource "backups"`. Find the cause and
    fix it. Do not grant `cluster-admin`.
-4. Once the controller reconciles cleanly, create a `Backup` named `nightly` in
-   namespace `default` with `spec.schedule: "0 2 * * *"` and
-   `spec.target: pvc/data-web-0`.
-5. Show that the controller observed the new object.
+4. Everyone bound to the built-in `view` ClusterRole must also be able to read `backups`.
+   Achieve this **without editing the `view` ClusterRole**, using a new ClusterRole named
+   `backup-viewer`.
+5. Once the controller reconciles cleanly, create a `Backup` named `nightly` in namespace
+   `default` with `spec.schedule: "0 2 * * *"` and `spec.target: pvc/data-web-0`, and
+   show that the controller observed it.
 
 ## My attempt
 

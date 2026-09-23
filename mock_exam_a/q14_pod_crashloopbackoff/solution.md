@@ -38,7 +38,7 @@ kubectl -n dev logs broken-app -c '<컨테이너>' --previous   # 컨테이너�
 kubectl -n dev get events --sort-by=.lastTimestamp | tail -15
 ```
 
-**`--previous` 없이 `kubectl logs` 를 치면 아무것도 못 봅니다.** 현재 인스턴스는 방금 시작했거나 아직 컨테이너가 없어서 로그가 비었거나 `container ... is waiting to start` 에러가 납니다. 실패한 파드의 로그는 거의 항상 `--previous` 입니다.
+**`--previous` 를 습관으로 붙입니다.** `--previous` 없이 치면 결과가 타이밍에 따라 달라집니다. CrashLoopBackOff로 **대기 중일 때**는 새 컨테이너가 아직 없어서 kubelet이 직전 종료 인스턴스의 로그를 대신 돌려줍니다. 하지만 재시작 직후 **새 인스턴스가 떠 있는 순간**에 치면 방금 시작한 인스턴스의 (보통 거의 빈) 로그가 나옵니다. `--previous` 는 언제 쳐도 "마지막으로 죽은 인스턴스"를 가리키므로 결과가 흔들리지 않습니다.
 
 **3) 종료 코드로 원인 좁히기**
 
@@ -60,15 +60,22 @@ kubectl -n dev describe pod broken-app | grep -i -A3 'liveness\|readiness'
 
 **4) 수리**
 
-Pod의 대부분 필드는 불변입니다. 이미지만 바꿀 때는 in-place가 되지만 `command`, `env`, 볼륨은 안 되므로 다시 만들어야 합니다.
+Pod의 대부분 필드는 불변입니다. 이미지는 제자리에서 바꿀 수 있고, 1.35부터(GA) CPU·메모리 request/limit도 `resize` 서브리소스로 제자리에서 바꿀 수 있습니다. `command`, `env`, 볼륨은 안 되므로 다시 만들어야 합니다.
 
 ```bash
 kubectl -n dev set image pod/broken-app '<컨테이너>=<올바른이미지>'   # 이미지만 문제면
 
+# 137(OOMKilled)이면 파드를 다시 만들지 않고 메모리 limit 만 올린다 (1.35 GA)
+kubectl -n dev patch pod broken-app --subresource resize --patch \
+  '{"spec":{"containers":[{"name":"<컨테이너>","resources":{"limits":{"memory":"256Mi"}}}]}}'
+
 kubectl -n dev get pod broken-app -o yaml > /tmp/broken-app.yaml   # 그 외에는 다시 만든다
 # status, metadata의 uid/resourceVersion/creationTimestamp 제거 후 수정
-kubectl -n dev replace --force -f /tmp/broken-app.yaml              # delete + apply 를 한 번에
+kubectl -n dev replace --force -f /tmp/broken-app.yaml              # delete + create 를 한 번에
 ```
+
+`--subresource resize` 없이 `kubectl edit`/`patch` 로 `resources` 를 바꾸면 여전히 거부됩니다.
+resize로 QoS 클래스가 바뀌는 변경(예: Burstable → Guaranteed)은 할 수 없습니다(자세한 것은 C-q14).
 
 Deployment가 관리하는 파드라면 파드를 지우지 말고 Deployment를 고칩니다. 파드만 지우면 같은 문제의 파드가 즉시 다시 생깁니다.
 
@@ -81,6 +88,7 @@ Deployment가 관리하는 파드라면 파드를 지우지 말고 Deployment를
 ```bash
 kubectl -n dev get pod broken-app -w
 # broken-app   1/1   Running   0   ...      ← RESTARTS가 더 늘지 않아야 한다
+#                                              (resize 로 제자리 수정했다면 0 이 아니라 기존 숫자에서 멈춘다)
 kubectl -n dev logs broken-app --tail=20             # 정상 기동 로그
 kubectl -n dev get pod broken-app -o jsonpath='{.status.containerStatuses[0].state}{"\n"}'
 # {"running":{"startedAt":"..."}}
@@ -90,7 +98,7 @@ kubectl -n dev describe pod broken-app | grep -A3 'Last State'   # 새 종료 �
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
-- **기억할 것**: 죽은 컨테이너의 로그는 `kubectl logs <pod> --previous`. 현재 로그를 봐도 아무것도 없다.
+- **기억할 것**: 죽은 컨테이너의 로그는 `kubectl logs <pod> --previous`. `--previous` 없이 치면 타이밍에 따라 새로 뜬 인스턴스의 빈 로그를 볼 수 있다.
 - **헷갈리는 지점**: `state` 와 `lastState` 를 섞어 보는 것. 원인은 `lastState.terminated` 에 있습니다. 그리고 exit code 0에 RESTARTS가 증가하는 경우를 "정상 종료"로 오독하기 쉽습니다 — 이건 포그라운드 프로세스가 없어서 명령이 바로 끝난 것이고, `restartPolicy: Always` 가 계속 다시 띄우는 중입니다.
 
 ## 참고 문서

@@ -5,7 +5,7 @@
 | Exam | mock_exam_b |
 | Domain | Workloads & Scheduling (15%) |
 | Points | 5 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 5 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
@@ -19,7 +19,8 @@ resource fields set. Its owner reports that an HPA they created shows `<unknown>
    without editing a manifest file on disk.
 2. Create a HorizontalPodAutoscaler named `frontend-hpa` in `web` using
    `autoscaling/v2`, targeting the `frontend` deployment, `minReplicas: 2`,
-   `maxReplicas: 8`, scaling on average CPU **utilization** of `60%`.
+   `maxReplicas: 8`, scaling on average CPU **utilization** of `60%`. When scaling down,
+   it must use a stabilization window of `30` seconds.
 3. Confirm the HPA reports a real percentage in the `TARGETS` column rather than
    `<unknown>`, and that replicas settled at 2.
 4. Write to `/opt/q05/answer.txt` the two prerequisites that must hold before an

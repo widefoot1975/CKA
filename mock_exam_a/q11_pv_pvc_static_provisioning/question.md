@@ -5,7 +5,7 @@
 | Exam | mock_exam_a |
 | Domain | Storage (10%) |
 | Points | 5 |
-| Context | `kubectl config use-context k8s-c1` + ssh to `worker01` |
+| Host | `ssh k8s-c1` → `ssh worker01` for the node steps |
 | Target time | 5 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
@@ -16,7 +16,8 @@ This cluster has no dynamic provisioner, so the volume must be prepared by hand.
 
 1. On `worker01`, create the directory `/mnt/data/logs`.
 2. Create a PersistentVolume `pv-logs`: 2Gi, `ReadWriteOnce`, `storageClassName: manual`,
-   reclaim policy `Retain`, backed by `hostPath` `/mnt/data/logs`.
+   reclaim policy `Retain`, backed by `hostPath` `/mnt/data/logs`, and pinned to node
+   `worker01` with node affinity so that every pod using it runs there.
 3. In namespace `ops`, create a PersistentVolumeClaim `pvc-logs` requesting 1Gi
    `ReadWriteOnce` from storage class `manual`, and confirm it binds to `pv-logs`.
 4. Create a Pod `logger` in `ops` running `busybox:1.36` with command

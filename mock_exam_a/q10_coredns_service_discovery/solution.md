@@ -88,7 +88,7 @@ kubectl -n alpha exec no-dns -- cat /etc/resolv.conf     # nameserver가 노드 
 kubectl -n alpha exec no-dns -- nslookup web             # 실패
 kubectl -n alpha exec no-dns -- nslookup web.alpha.svc.cluster.local   # 역시 실패
 kubectl -n kube-system logs -l k8s-app=kube-dns --tail=20
-kubectl -n kube-system get ep kube-dns                   # CoreDNS 파드 IP:53
+kubectl -n kube-system get endpointslice -l kubernetes.io/service-name=kube-dns   # CoreDNS 파드 IP
 kubectl get svc -n alpha web -o jsonpath='{.spec.clusterIP}'
 ```
 

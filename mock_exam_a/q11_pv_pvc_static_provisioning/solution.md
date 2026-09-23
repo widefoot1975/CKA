@@ -7,7 +7,7 @@
 이 클러스터에는 동적 프로비저너가 없어 볼륨을 손으로 준비해야 한다.
 
 1. `worker01` 에 디렉터리 `/mnt/data/logs` 를 만든다.
-2. PersistentVolume `pv-logs` 를 만든다. 용량 2Gi, 액세스 모드 `ReadWriteOnce`, `storageClassName: manual`, 반환 정책 `Retain`, 스토리지는 `hostPath` `/mnt/data/logs`.
+2. PersistentVolume `pv-logs` 를 만든다. 용량 2Gi, 액세스 모드 `ReadWriteOnce`, `storageClassName: manual`, 반환 정책 `Retain`, 스토리지는 `hostPath` `/mnt/data/logs`. node affinity로 노드 `worker01` 에 고정해 이 PV를 쓰는 파드가 항상 그 노드에 뜨게 한다.
 3. `ops` 네임스페이스에 스토리지 클래스 `manual` 에서 1Gi `ReadWriteOnce` 를 요청하는 PersistentVolumeClaim `pvc-logs` 를 만들고, `pv-logs` 에 바인딩되는지 확인한다.
 4. `ops` 에 `busybox:1.36` 으로 `sh -c 'while true; do date >> /data/out.log; sleep 5; done'` 를 실행하는 Pod `logger` 를 만들어 클레임을 `/data` 에 마운트한다. 노드에서 파일이 쓰이는 것을 보인다.
 5. `ops` 에 `manual` 에서 3Gi를 요청하는 두 번째 클레임 `pvc-logs-2` 를 만들고, 왜 `Pending` 으로 남는지 한 줄로 적는다.
@@ -29,6 +29,13 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: manual
   hostPath: { path: /mnt/data/logs }
+  nodeAffinity:                     # 이 PV를 쓰는 파드는 worker01 에만 스케줄된다
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values: ["worker01"]
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -70,7 +77,7 @@ spec:
 kubectl get storageclass          # (default) 표시가 붙은 클래스가 있는지 확인
 ```
 
-hostPath PV는 특정 노드의 로컬 디렉터리라 파드가 반드시 그 노드에 떠야 합니다. 실무라면 `nodeAffinity` 를 붙인 `local` 볼륨을 쓰지만, 시험 범위에서는 hostPath로 충분합니다.
+**hostPath PV는 특정 노드의 로컬 디렉터리인데, PV 자체는 그 사실을 모릅니다.** `nodeAffinity` 없이 만들면 스케줄러는 `logger` 를 아무 노드에나 보내고, 컨테이너 런타임은 그 노드에 빈 `/mnt/data/logs` 를 만들어 거기에 씁니다. 그러면 파드는 정상인데 worker01에서는 파일이 안 보입니다. PV의 `spec.nodeAffinity` 를 주면 스케줄러가 이 PV를 쓰는 파드를 worker01에만 놓습니다. `local` 볼륨 타입은 `nodeAffinity` 가 **필수**이고, hostPath는 선택이지만 노드가 여럿이면 사실상 필수입니다. (파드 쪽 `nodeSelector` 로 고정해도 되지만, PV에 붙여 두면 이 PV를 쓰는 모든 파드에 자동으로 적용됩니다.)
 
 ## 검증
 
@@ -87,14 +94,15 @@ kubectl -n ops describe pvc pvc-logs-2 | tail -5
 # Events: ... no persistent volumes available for this claim
 
 kubectl -n ops exec logger -- tail -3 /data/out.log
-kubectl -n ops get pod logger -o wide           # 어느 노드인지 확인
-tail -3 /mnt/data/logs/out.log                  # 그 노드에서
+kubectl -n ops get pod logger -o wide           # NODE 가 worker01 이어야 한다
+kubectl get pv pv-logs -o jsonpath='{.spec.nodeAffinity}{"\n"}'
+tail -3 /mnt/data/logs/out.log                  # worker01 에서 — 같은 줄이 보인다
 ```
 
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
-- **기억할 것**: 바인딩 조건은 accessModes 포함 + storageClassName 완전 일치 + PV capacity ≥ PVC request, 세 개 전부.
+- **기억할 것**: 바인딩 조건은 accessModes 포함 + storageClassName 완전 일치 + PV capacity ≥ PVC request, 세 개 전부. 노드 로컬 PV(hostPath/local)는 PV에 `nodeAffinity` 를 붙여야 파드가 데이터가 있는 노드로 간다.
 - **헷갈리는 지점**: `storageClassName` 을 **생략**하면 기본 StorageClass가 끼어들어 동적 프로비저닝이 되고, `""` 로 두면 클래스 없는 PV만 노립니다. 둘이 전혀 다릅니다. 그리고 PVC가 `Pending` 일 때 원인은 항상 `kubectl describe pvc` 의 Events에 문장으로 적혀 있으니 추측하지 말고 읽습니다.
 
 ## 참고 문서

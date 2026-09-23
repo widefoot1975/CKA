@@ -19,7 +19,7 @@
 
 ```bash
 kubectl -n shop get svc api-svc
-kubectl -n shop get endpoints api-svc     # api-svc   <none>   12m
+kubectl -n shop get endpoints api-svc     # api-svc   <none>   12m  (1.33+ 는 deprecation 경고가 함께 나온다)
 kubectl -n shop get endpointslices -l kubernetes.io/service-name=api-svc
 kubectl -n shop describe svc api-svc      # Selector 와 Endpoints: <none> 를 한 화면에서
 ```
@@ -59,7 +59,7 @@ kubectl -n shop edit svc api-svc
 # spec.ports[0].targetPort: 80 → 8080
 ```
 
-patch로 하려면 포트 리스트는 `port` 를 키로 병합되므로 모든 필드를 함께 줘야 합니다.
+patch로 할 때 포트 리스트는 `port` 값을 키로 병합되므로, 바꿀 항목의 `port` 와 바꿀 필드만 주면 됩니다(`name`·`protocol` 을 같이 적으면 어느 항목인지 더 분명해집니다).
 
 ```bash
 kubectl -n shop patch svc api-svc -p \
@@ -83,9 +83,9 @@ kubectl -n shop get endpointslices -l kubernetes.io/service-name=api-svc -o yaml
 ## 검증
 
 ```bash
-kubectl -n shop get endpoints api-svc
-# api-svc   10.244.1.5:8080,10.244.1.6:8080,10.244.2.4:8080
-kubectl -n shop get endpointslices -l kubernetes.io/service-name=api-svc -o wide
+kubectl -n shop get endpointslices -l kubernetes.io/service-name=api-svc
+# NAME          ADDRESSTYPE   PORTS   ENDPOINTS
+# api-svc-x7k2p IPv4          8080    10.244.1.5,10.244.1.6,10.244.2.4
 kubectl -n shop describe svc api-svc | grep -i endpoints
 kubectl -n shop get pods -l app=api            # 3개가 잡혀야 한다
 kubectl -n shop run tmp --rm -it --image=busybox:1.36 --restart=Never -- \

@@ -3,20 +3,21 @@
 | Item | Value |
 |---|---|
 | Exam | mock_exam_b |
-| Domain | Servicing & Networking (20%) |
+| Domain | Services & Networking (20%) |
 | Points | 7 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 7 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Task
 
-The cluster has an NGINX Gateway controller installed but the Gateway API types are not
-served yet.
+The cluster has an NGINX Gateway controller installed, registered as GatewayClass `nginx`.
 
-1. Install the Gateway API **standard** CRDs and confirm `gateway.networking.k8s.io/v1`
-   is served and that a `GatewayClass` named `nginx` exists and is `Accepted`.
+1. Make sure the Gateway API **standard** CRDs are installed at a version the controller
+   supports (install them if missing), confirm `gateway.networking.k8s.io/v1` is served and
+   that GatewayClass `nginx` is `Accepted`, and write the installed bundle version and
+   channel to `/opt/q08/gateway-api.txt`.
 2. In namespace `gw`, create deployment/service `shop-svc` (`nginx:1.27`, service port
    `80`) and deployment/service `api-svc` (`nginx:1.27`, service port `8080` to container
    port `80`).

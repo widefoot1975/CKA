@@ -45,19 +45,21 @@ kubectl describe pod <evicted-pod> | grep -A3 Status
 **2) 임계값** (worker02, root)
 
 ```bash
-grep -A10 evictionHard /var/lib/kubelet/config.yaml
-# evictionHard:
-#   imagefs.available: 15%
-#   memory.available: 100Mi
-#   nodefs.available: 10%
-#   nodefs.inodesFree: 5%
+# 실제로 적용 중인 값 — 설정 파일에 안 적힌 기본값까지 포함해 보여 준다
+kubectl get --raw "/api/v1/nodes/worker02/proxy/configz" | tr ',' '\n' | grep -A6 evictionHard
+# "evictionHard":{"imagefs.available":"15%" / "memory.available":"100Mi" /
+#  "nodefs.available":"10%" / "nodefs.inodesFree":"5%"}   (버전에 따라 pid.available 등이 더 있다)
 
-ps aux | grep kubelet | tr ' ' '\n' | grep eviction     # 플래그로 준 경우
+grep -A10 evictionHard /var/lib/kubelet/config.yaml     # (worker02) 비어 있으면 기본값을 쓰는 중
 df -h /var/lib/kubelet /var/lib/containerd /
 df -i /                                                 # inode 소진도 같은 증상을 낸다
 ```
 
-시그널이 네 가지라는 점이 중요합니다. `nodefs` 는 kubelet이 쓰는 파일시스템(emptyDir, 로그),
+kubeadm이 만든 `/var/lib/kubelet/config.yaml` 에는 보통 `evictionHard` 가 없습니다. 적지 않은 값은
+kubelet 기본값이 적용되므로 `grep` 이 비어 있다고 "임계값이 없다"고 결론 내리면 안 됩니다. `configz`
+엔드포인트는 kubelet이 **실제로 쓰고 있는** 설정 전체를 돌려주므로 이것이 확실합니다.
+
+시그널이 여러 개라는 점이 중요합니다(메모리 외에 nodefs·imagefs 각각의 용량과 inode). `nodefs` 는 kubelet이 쓰는 파일시스템(emptyDir, 로그),
 `imagefs` 는 런타임이 이미지와 컨테이너 쓰기 레이어를 두는 파일시스템입니다. 둘이 같은 디스크인
 경우가 많지만 분리되어 있으면 어느 쪽이 찼는지에 따라 조치가 달라집니다. 그리고 용량이 넉넉한데도
 `nodefs.inodesFree` 로 축출되는 경우가 있어 `df -h` 만 보면 원인을 놓칩니다.
@@ -92,8 +94,10 @@ df -h /
 `/var/lib/containerd` 를 직접 `rm` 하면 containerd의 메타데이터 DB와 실제 레이어가 어긋나
 이후 모든 이미지 pull이 깨집니다. 반드시 `crictl rmi` 를 통해야 합니다.
 
-kubelet은 자체 GC도 하지만 `imageGCHighThresholdPercent` (기본 85) 에 도달해야 동작하고,
-하드 축출 임계(15% 여유)가 더 먼저 걸리는 설정이면 GC가 돌기 전에 축출이 시작됩니다.
+디스크 압박이 오면 kubelet은 파드를 축출하기 **전에** 먼저 노드 수준 회수를 시도합니다 — 쓰지 않는
+이미지와 죽은 컨테이너를 지웁니다. 그래도 임계 아래로 못 내려가면 그때 파드를 축출합니다. 그래서 파드가
+축출되었다는 것은 kubelet이 지울 수 있는 것을 다 지워도 모자랐다는 뜻이고, 이미지보다는 컨테이너 로그·
+emptyDir·노드의 다른 데이터가 원인일 가능성이 큽니다.
 
 공간이 확보되면 kubelet이 다음 평가 주기(기본 10초)에 컨디션을 내리지만,
 `evictionPressureTransitionPeriod` (기본 5분) 동안 플래핑 방지를 위해 유지되므로 즉시 사라지지
@@ -122,8 +126,9 @@ kubectl describe node worker02 | grep -A6 Conditions
 kubectl describe node worker02 | grep -i taint      # disk-pressure 테인트 없음
 df -h /                                             # Use% 가 임계 아래
 
-kubectl run probe --image=nginx --overrides='{"spec":{"nodeName":"worker02"}}'
-kubectl get pod probe -o wide                       # Running, NODE=worker02
+kubectl run probe --image=nginx:1.27 \
+  --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"worker02"}}}'
+kubectl get pod probe -o wide                       # Running, NODE=worker02 (스케줄러가 배치했다)
 
 kubectl get pods -A --field-selector=status.phase=Failed    # No resources found
 crictl images | wc -l                               # 줄어들었다

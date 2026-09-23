@@ -24,11 +24,12 @@ kubectl create namespace alpha
 kubectl create namespace beta
 kubectl -n alpha create deploy alpha-web --image=nginx:1.27 --replicas=2
 kubectl -n alpha expose deploy alpha-web --port=80
-kubectl -n beta run probe --image=busybox:1.36 --command -- sleep 3600
+kubectl -n beta run probe --image=busybox:1.36 --restart=Never --command -- sleep 86400
 ```
 
 `busybox` 를 그냥 `kubectl run` 하면 즉시 종료해 `CrashLoopBackOff` 가 됩니다. `sleep` 을
-줘야 조사용 파드로 쓸 수 있습니다.
+줘야 조사용 파드로 쓸 수 있습니다. "재시작하지 않는" 파드이므로 `--restart=Never` 로
+`restartPolicy: Never` 를 줍니다(기본값은 `Always`).
 
 **3) DNS.** 짧은 이름은 실패하고 FQDN은 성공합니다. 이것이 정상 동작입니다.
 

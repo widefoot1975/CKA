@@ -17,11 +17,11 @@
 ## 모범 풀이
 
 ```bash
-kubectl create namespace staging
+kubectl create namespace staging        # 이미 있으면 AlreadyExists — 무시하고 진행
 kubectl -n staging create serviceaccount deploy-bot
 ```
 
-Role은 리소스 그룹이 나뉘므로 `--resource` 를 한 번에 주면 동사가 뒤섞입니다. 규칙이 셋이니 yaml이 정확합니다.
+`kubectl create role` 은 `--resource` 에 준 **모든 리소스에 같은 동사**를 줍니다. 이 문제는 리소스마다 동사가 다르므로(deployments 5개, scale 2개, pods 2개) yaml로 규칙 셋을 쓰는 것이 정확합니다.
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -48,7 +48,7 @@ kubectl -n staging create rolebinding deploy-bot-binding \
   --serviceaccount=staging:deploy-bot
 ```
 
-**`apiGroups` 를 맞추는 것이 핵심입니다.** `deployments` 는 `apps` 그룹, `pods` 는 core 그룹(빈 문자열 `""`)입니다. 한 규칙에 몰아넣으면 권한이 엉뚱하게 열리거나 닫힙니다. 그룹이 기억나지 않으면:
+**`apiGroups` 를 맞추는 것이 핵심입니다.** `deployments` 는 `apps` 그룹, `pods` 는 core 그룹(빈 문자열 `""`)입니다. 규칙 하나는 `apiGroups × resources × verbs` 의 **모든 조합**을 허용하므로, `apiGroups: ["", "apps"]` 와 `resources: ["pods", "deployments"]` 를 한 규칙에 적는 것 자체는 가능합니다. 다만 그러면 두 리소스가 같은 동사를 받게 되므로, 동사가 다른 이 문제에서는 규칙을 나눠야 합니다. 그룹이 기억나지 않으면:
 
 ```bash
 kubectl api-resources | grep -E '^deployments|^pods'
@@ -61,7 +61,7 @@ kubectl api-resources | grep -E '^deployments|^pods'
 ```bash
 SA=system:serviceaccount:staging:deploy-bot
 
-kubectl -n staging auth can-i update deployments/scale --as=$SA   # yes
+kubectl -n staging auth can-i update deployments --subresource=scale --as=$SA   # yes
 kubectl -n staging auth can-i patch deployments --as=$SA          # yes
 kubectl -n staging auth can-i delete deployments --as=$SA         # no
 kubectl -n default auth can-i get deployments --as=$SA            # no
@@ -71,10 +71,15 @@ kubectl -n staging create deploy web --image=nginx
 kubectl -n staging scale deploy web --replicas=3 --as=$SA
 ```
 
+**`auth can-i update deployments/scale` 로 확인하면 안 됩니다.** `can-i` 는 두 번째 인자의 `/` 뒤를
+서브리소스가 아니라 **리소스 이름**으로 읽습니다. 그래서 위 명령은 "`scale` 이라는 이름의 deployment를
+update할 수 있나"를 묻게 되고, `deployments` 에 `update` 가 있으니 scale 규칙이 없어도 `yes` 가 나옵니다.
+서브리소스는 반드시 `--subresource=scale` 로 지정합니다(`pods --subresource=log` 도 같은 방식).
+
 ## 오답 원인 / 배운 점
 
 - **왜 틀렸나**:
-- **기억할 것**: `deployments` = `apps` 그룹, `pods` = core(`""`) 그룹. 한 규칙에 섞을 수 없다.
+- **기억할 것**: `deployments` = `apps` 그룹, `pods` = core(`""`) 그룹. 규칙 하나 안의 리소스는 모두 같은 동사를 받으므로 동사가 다르면 규칙을 나눈다. 서브리소스 권한 확인은 `auth can-i <verb> <resource> --subresource=<sub>`.
 - **헷갈리는 지점**: `scale` 은 subresource(`deployments/scale`)라 따로 열어야 `kubectl scale` 이 동작합니다. Role은 네임스페이스 한정이므로 다른 네임스페이스는 자동으로 막힙니다.
 
 ## 참고 문서

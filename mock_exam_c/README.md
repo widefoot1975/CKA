@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 |---|---|
 | 출처 | 자체 출제 (CKA 커리큘럼 v1.35 비중 반영) |
-| 성격 | 전 범위 독립 모의고사 — 다른 회차와 문제가 겹치지 않습니다 |
+| 성격 | 전 범위 독립 모의고사 — 같은 커리큘럼 항목을 회차마다 다른 시나리오로 다룹니다 |
 | 응시일 |  |
 | 제한 시간 | 120분 (목표 시간 합계 110분, 여유 10분) |
 | 실제 소요 |  |
@@ -11,7 +11,7 @@
 
 문제는 영문(`question.md`), 풀이는 한글(`solution.md`)입니다. `solution.md` 맨 앞에 한글 해석이 있으니, 풀이를 보기 전에 영문을 제대로 읽었는지 먼저 대조하세요.
 
-각 문제의 컨텍스트 전환(`kubectl config use-context`)을 빼먹으면 실제 시험에서는 0점입니다.
+각 문제는 메타 표의 `Host` 로 `ssh` 해서 풉니다. 실제 시험에서는 지정 호스트가 아닌 곳에서 작업하면 0점이고, 문제를 마치면 `exit` 로 베이스 터미널에 돌아온 뒤 다음 문제의 호스트로 들어갑니다.
 
 ## 문항
 
@@ -21,13 +21,13 @@
 |---|---|---|---|---|---|---|---|
 | 01 | Join a new worker node to the cluster | Cluster Arch | 7 | 7분 |  | ☐ | [Q](q01_kubeadm_worker_join/question.md) · [S](q01_kubeadm_worker_join/solution.md) |
 | 02 | Deploy an environment overlay with Kustomize | Cluster Arch | 6 | 6분 |  | ☐ | [Q](q02_kustomize_overlay_deploy/question.md) · [S](q02_kustomize_overlay_deploy/solution.md) |
-| 03 | Cluster-wide permissions with ClusterRole aggregation | Cluster Arch | 6 | 6분 |  | ☐ | [Q](q03_clusterrole_aggregation/question.md) · [S](q03_clusterrole_aggregation/solution.md) |
+| 03 | Install a CNI plugin that enforces NetworkPolicy | Cluster Arch | 6 | 6분 |  | ☐ | [Q](q03_cni_install_networkpolicy/question.md) · [S](q03_cni_install_networkpolicy/solution.md) |
 | 04 | Install and configure an operator | Cluster Arch | 6 | 6분 |  | ☐ | [Q](q04_operator_install_configure/question.md) · [S](q04_operator_install_configure/solution.md) |
 | 05 | Self-healing with StatefulSet and DaemonSet | Workloads | 5 | 5분 |  | ☐ | [Q](q05_statefulset_daemonset_selfheal/question.md) · [S](q05_statefulset_daemonset_selfheal/solution.md) |
 | 06 | Probes and a PodDisruptionBudget | Workloads | 5 | 5분 |  | ☐ | [Q](q06_probes_pod_disruption_budget/question.md) · [S](q06_probes_pod_disruption_budget/solution.md) |
 | 07 | Run work with a Job and a CronJob | Workloads | 5 | 5분 |  | ☐ | [Q](q07_job_cronjob/question.md) · [S](q07_job_cronjob/solution.md) |
 | 08 | Weighted traffic splitting with HTTPRoute | Networking | 7 | 7분 |  | ☐ | [Q](q08_httproute_traffic_split/question.md) · [S](q08_httproute_traffic_split/solution.md) |
-| 09 | Terminate TLS at an Ingress | Networking | 6 | 6분 |  | ☐ | [Q](q09_ingress_tls_termination/question.md) · [S](q09_ingress_tls_termination/solution.md) |
+| 09 | Migrate a TLS Ingress to the Gateway API | Networking | 6 | 6분 |  | ☐ | [Q](q09_ingress_to_gateway_migration/question.md) · [S](q09_ingress_to_gateway_migration/solution.md) |
 | 10 | Headless Service and StatefulSet pod DNS | Networking | 7 | 7분 |  | ☐ | [Q](q10_headless_service_statefulset_dns/question.md) · [S](q10_headless_service_statefulset_dns/solution.md) |
 | 11 | Per-replica storage with volumeClaimTemplates | Storage | 5 | 5분 |  | ☐ | [Q](q11_volumeclaimtemplates_statefulset/question.md) · [S](q11_volumeclaimtemplates_statefulset/solution.md) |
 | 12 | Expand a PVC and observe reclaim behaviour | Storage | 5 | 5분 |  | ☐ | [Q](q12_pvc_expand_reclaim_behavior/question.md) · [S](q12_pvc_expand_reclaim_behavior/solution.md) |
@@ -44,7 +44,7 @@
 |---|---|---|---|---|---|
 | Troubleshooting | 30% | 30 | 40분 |  |  |
 | Cluster Architecture, Installation & Configuration | 25% | 25 | 25분 |  |  |
-| Servicing & Networking | 20% | 20 | 20분 |  |  |
+| Services & Networking | 20% | 20 | 20분 |  |  |
 | Workloads & Scheduling | 15% | 15 | 15분 |  |  |
 | Storage | 10% | 10 | 10분 |  |  |
 

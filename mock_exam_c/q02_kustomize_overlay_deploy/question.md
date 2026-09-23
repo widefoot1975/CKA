@@ -5,7 +5,7 @@
 | Exam | mock_exam_c |
 | Domain | Cluster Architecture, Installation & Configuration (25%) |
 | Points | 6 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 6 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |

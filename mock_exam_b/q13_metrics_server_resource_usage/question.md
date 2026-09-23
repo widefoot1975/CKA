@@ -5,7 +5,7 @@
 | Exam | mock_exam_b |
 | Domain | Troubleshooting (30%) |
 | Points | 7 |
-| Context | `kubectl config use-context k8s-c1` |
+| Host | `ssh k8s-c1` |
 | Target time | 9 min |
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
