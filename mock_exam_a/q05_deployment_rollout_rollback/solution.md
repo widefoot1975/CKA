@@ -36,7 +36,7 @@ kubectl -n apps get deploy web -o jsonpath='{.spec.template.spec.containers[*].n
 kubectl -n apps set image deploy/web '*=nginx:1.26'     # 모든 컨테이너
 ```
 
-`--record` 는 제거되었습니다. change cause는 `kubernetes.io/change-cause` 어노테이션으로 직접 넣습니다. 이 어노테이션은 Deployment에 붙으면 현재 리비전의 ReplicaSet으로 복사되어 `rollout history` 의 CHANGE-CAUSE 열에 나옵니다.
+`--record` 는 deprecated 되어 도움말과 레퍼런스에서 빠졌습니다(쓰면 경고가 나오고 언제 없어질지 모릅니다). change cause는 `kubernetes.io/change-cause` 어노테이션으로 직접 넣습니다. 이 어노테이션은 Deployment에 붙으면 현재 리비전의 ReplicaSet으로 복사되어 `rollout history` 의 CHANGE-CAUSE 열에 나옵니다.
 
 **pause / resume**
 

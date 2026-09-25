@@ -37,7 +37,8 @@ CoreDNS가 kube-dns를 대체했지만 Service 이름은 하위 호환을 위해
 **조회 결과**
 
 ```bash
-kubectl -n alpha run dns -it --rm --image=busybox:1.36 --restart=Never -- sh
+kubectl -n alpha run dns -it --rm --restart=Never \
+  --image=registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3 -- sh
 nslookup web                            # alpha 의 Service ClusterIP
 nslookup web.beta                       # beta 의 Service ClusterIP
 nslookup web.beta.svc.cluster.local     # beta 의 Service ClusterIP
@@ -47,6 +48,11 @@ cat /etc/resolv.conf
 # search alpha.svc.cluster.local svc.cluster.local cluster.local
 # options ndots:5
 ```
+
+디버그 이미지는 공식 문서(Debugging DNS Resolution)의 dnsutils 이미지를 씁니다. **busybox 의 `nslookup` 은
+점이 든 이름에 search 도메인을 붙이지 않기 때문입니다.** busybox 로 `nslookup web.beta` 를 하면 `web.beta.` 만
+물어서 DNS가 정상이어도 NXDOMAIN 이 나오고, 네 이름 중 둘이 실패한 것처럼 보입니다. busybox 밖에 없다면
+`wget -qO- -T 2 http://web.beta` 처럼 libc 리졸버를 쓰는 명령으로 확인합니다. 이런 명령은 search 를 적용합니다.
 
 `search` 목록이 전부를 설명합니다. 점 개수가 `ndots:5` 미만인 이름은 절대 이름으로 시도하기 **전에** search 도메인을 앞에서부터 하나씩 붙여 봅니다.
 

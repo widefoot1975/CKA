@@ -35,7 +35,8 @@ kubectl -n beta run probe --image=busybox:1.36 --restart=Never --command -- slee
 
 ```bash
 kubectl -n beta exec probe -- nslookup alpha-web
-# ** server can't find alpha-web: NXDOMAIN
+# ** server can't find alpha-web.beta.svc.cluster.local: NXDOMAIN
+# ** server can't find alpha-web.svc.cluster.local: NXDOMAIN      (search 목록의 이름마다 한 줄)
 
 kubectl -n beta exec probe -- nslookup alpha-web.alpha.svc.cluster.local
 # Name: alpha-web.alpha.svc.cluster.local
@@ -47,6 +48,10 @@ kubectl -n beta exec probe -- nslookup alpha-web.alpha.svc.cluster.local
 네임스페이스를 넘을 때는 최소한 `alpha-web.alpha` 까지는 써야 합니다 — `search` 에
 `svc.cluster.local` 이 있으므로 이 형태로도 해석됩니다. "다른 네임스페이스에 못 닿는다"는
 신고의 대부분이 실제로는 이 한 줄입니다.
+
+단, `probe` 같은 busybox 파드에서 `nslookup alpha-web.alpha` 로 확인하면 NXDOMAIN 이 납니다. busybox 의
+`nslookup` 은 점이 든 이름에 search 를 붙이지 않기 때문입니다. `wget http://alpha-web.alpha` 는 libc 리졸버가
+search 를 적용하므로 됩니다. busybox 의 `nslookup` 으로는 FQDN 이나 점 없는 이름만 조회합니다.
 
 ```bash
 kubectl -n beta exec probe -- cat /etc/resolv.conf
