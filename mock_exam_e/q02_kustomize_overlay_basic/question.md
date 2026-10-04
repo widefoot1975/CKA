@@ -12,7 +12,7 @@
 
 ## PreIns
 
-```
+```bash
 # 1. base 및 overlays 디렉터리 구조 생성
 mkdir -p /opt/course/e02/base
 mkdir -p /opt/course/e02/overlays/staging
