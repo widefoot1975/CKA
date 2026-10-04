@@ -10,6 +10,10 @@
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
+## PreIns
+
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+
 ## Task
 
 cert-manager is installed in the cluster. Using only `kubectl`, collect information about the
