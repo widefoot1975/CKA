@@ -18,6 +18,7 @@
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 kubectl -n kube-system patch deploy metrics-server --type=json \
   -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl get pods -n kube-system -l k8s-app=metrics-server
 
 # 2. namespace + Deployment apache-web (httpd:2.4, CPU request 100m)
 kubectl create ns autoscale
