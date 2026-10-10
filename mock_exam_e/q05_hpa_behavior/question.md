@@ -10,21 +10,55 @@
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
-## PreIns
+## Setup — 사전 환경 설정
 
-```
-# 1. metrics-server 확인 (없으면 설치)
-# 1. metrics-server 설치 (실습 클러스터는 --kubelet-insecure-tls 필요)
+문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+
+**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+
+```bash
+# 0) 이전 실습 흔적 정리
+kubectl delete ns autoscale --ignore-not-found --wait=true
+
+# 1) metrics-server 설치 (실습 클러스터는 --kubelet-insecure-tls 필요)
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-kubectl -n kube-system patch deploy metrics-server --type=json \
-  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-kubectl get pods -n kube-system -l k8s-app=metrics-server
+if ! kubectl -n kube-system get deploy metrics-server \
+     -o jsonpath='{.spec.template.spec.containers[0].args}' | grep -q -- '--kubelet-insecure-tls'; then
+  kubectl -n kube-system patch deploy metrics-server --type=json \
+    -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+fi
+kubectl -n kube-system rollout status deploy metrics-server --timeout=180s
 
-# 2. namespace + Deployment apache-web (httpd:2.4, CPU request 100m)
+# 2) namespace + Deployment apache-web (httpd:2.4, CPU request 100m)
 kubectl create ns autoscale
 kubectl -n autoscale create deploy apache-web --image=httpd:2.4
 kubectl -n autoscale set resources deploy apache-web --requests=cpu=100m
+kubectl -n autoscale rollout status deploy apache-web
+
+# 3) 설정 확인 (metrics-server 가 값을 모으기까지 1분 정도 걸릴 수 있음)
+kubectl get pods -n kube-system -l k8s-app=metrics-server
+kubectl -n autoscale get deploy apache-web \
+  -o jsonpath='{.spec.template.spec.containers[0].resources}{"\n"}'
 ```
+
+**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+```bash
+bash setup.sh      # 환경 만들기
+bash cleanup.sh    # 실습 후 정리
+```
+
+설정 직후 Deployment `apache-web` 은 CPU request `100m` 을 가지고 HPA 는 없다. metrics-server 가 값을 모으기까지 1분 정도 걸릴 수 있다.
+`cleanup.sh` 는 metrics-server 를 남겨 둔다(`kubectl top` 등 다른 문제에서도 쓰임).
+
+<details><summary>정리 명령 (방법 A)</summary>
+
+```bash
+kubectl delete ns autoscale --ignore-not-found
+# metrics-server 는 다른 문제(kubectl top 등)에서도 쓰므로 남겨 둔다
+```
+
+</details>
 
 ## Task
 
