@@ -1,22 +1,8 @@
-# q05 — Create a PriorityClass relative to existing ones
+#!/usr/bin/env bash
+# q05 — Create a PriorityClass relative to existing ones · 사전 환경 설정
+# 실행: bash setup.sh   (k8s-c1 에서 실행, 여러 번 실행해도 안전)
+set -euo pipefail
 
-| Item | Value |
-|---|---|
-| Exam | mock_exam_f |
-| Domain | Workloads & Scheduling (15%) |
-| Points | 5 |
-| Host | `ssh k8s-c1` |
-| Target time | 5 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
-
-## PreIns — 사전 환경 설정
-
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
-
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
-
-```bash
 # 0) 이전 실습 흔적 정리
 kubectl delete priorityclass high-priority --ignore-not-found
 kubectl delete ns priority --ignore-not-found --wait=true
@@ -99,48 +85,3 @@ kubectl -n priority rollout status deploy busybox-logger
 kubectl get pc --sort-by=.value
 kubectl -n priority get pods \
   -o custom-columns=NAME:.metadata.name,CLASS:.spec.priorityClassName,PRIORITY:.spec.priority
-```
-
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
-
-```bash
-bash setup.sh      # 환경 만들기
-bash cleanup.sh    # 실습 후 정리
-```
-
-설정 직후 파드는 `default-workload` / `10000` 으로 보인다(global default 클래스가 자동 적용됨).
-`default-workload` 는 globalDefault 라서 클러스터의 다른 새 파드에도 붙으므로, 실습이 끝나면 꼭 정리한다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl delete ns priority --ignore-not-found
-kubectl delete priorityclass high-priority batch-low default-workload \
-  team-standard team-critical zz-preempt-never --ignore-not-found
-```
-
-</details>
-
-## Task
-
-Deployment `busybox-logger` in namespace `priority` needs a high priority, just below the
-most important existing user workload. Several user-defined PriorityClasses already exist
-in the cluster.
-
-1. Find the highest `value` among the existing user-defined PriorityClasses (ignore the
-   built-in `system-*` classes). Create PriorityClass `high-priority` with a value exactly
-   one less than that. It must not be the global default.
-2. Patch Deployment `busybox-logger` in namespace `priority` so that its Pods use
-   PriorityClass `high-priority`.
-3. Confirm that the Deployment's new Pods have `spec.priority` equal to the value of
-   `high-priority`.
-
-## My attempt
-
-```bash
-
-```
-
----
-
-Solution → **[solution.md](solution.md)**
