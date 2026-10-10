@@ -10,7 +10,7 @@
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
-## PreIns — 사전 환경 설정
+## Setup — 사전 환경 설정
 
 문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
 
