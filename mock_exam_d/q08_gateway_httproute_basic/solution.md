@@ -58,6 +58,27 @@ kubectl apply -f web-gw.yaml
 `sectionName` 은 Gateway 안의 listener 이름입니다. listener의 `allowedRoutes.namespaces.from` 기본값이
 `Same` 이라, 같은 네임스페이스(`web`)의 route는 추가 설정 없이 붙습니다. 붙지 않으면 route의 reason을 봅니다.
 
+### 트래픽 흐름
+
+```mermaid
+flowchart LR
+    C["curl<br/>Host: shop.example.com"] -->|"GW 주소:80"| S["Service web-gw-nginx<br/>(NGF 가 Gateway 마다 생성)"]
+    S --> N["NGINX 데이터 플레인 파드<br/>= Gateway web-gw<br/>listener http · HTTP · 80"]
+    N -->|"HTTPRoute frontend-route<br/>host = shop.example.com<br/>path prefix /"| F["Service frontend:80"]
+    F --> P["frontend 파드"]
+    N -.->|"host 불일치<br/>(-H 없음 등)"| X["404 Not Found"]
+    GC["GatewayClass nginx<br/>컨트롤러 nginx-gateway"] -. "설정을 NGINX 에 반영" .-> N
+```
+
+1. 클라이언트가 Gateway 주소(`status.addresses`)의 80 포트로 요청을 보냅니다. NodePort 설치에서는 이 주소가
+   `web-gw-nginx` Service 의 ClusterIP 입니다. 클러스터 밖에서는 `<노드IP>:<NodePort>` 로 같은 Service 에 들어옵니다.
+2. 요청은 Gateway `web-gw` 의 실체인 NGINX 파드에 도착하고, listener `http`(HTTP/80)가 받습니다.
+3. NGINX 는 그 listener 에 붙은 HTTPRoute 중 Host 헤더와 경로가 맞는 규칙을 찾습니다. `shop.example.com` + `/` 가
+   맞으면 `backendRefs` 의 Service `frontend` 포트 80으로 보냅니다. 맞는 규칙이 없으면 404를 직접 돌려줍니다.
+4. Service `frontend` 가 Ready 파드 하나로 요청을 넘기고, 응답이 같은 길로 돌아옵니다.
+
+GatewayClass 와 컨트롤러는 요청 경로에 끼지 않습니다. Gateway·HTTPRoute 리소스를 읽어 NGINX 설정을 만들어 줄 뿐입니다.
+
 | route 상태 (reason) | 흔한 원인 |
 |---|---|
 | `Accepted=False`, `NoMatchingParent` | `parentRefs` 의 Gateway 이름이나 `sectionName` 오타 |
