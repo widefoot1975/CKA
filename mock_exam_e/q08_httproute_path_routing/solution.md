@@ -64,6 +64,27 @@ route가 **다른 네임스페이스의 Service**를 backendRef로 가리킬 때
 이기므로** `/cart/items` 는 `cart` 로, 나머지는 `catalog` 로 갑니다. 규칙을 적는 순서는 상관없습니다.
 `PathPrefix` 는 경로 요소 단위로 비교해서 `/cartoon` 은 `/cart` 에 맞지 않고 `catalog` 로 갑니다.
 
+### 트래픽 흐름
+
+```mermaid
+flowchart LR
+    C["curl<br/>Host: shop.example.com"] -->|"GW 주소:80"| S["Service main-gw-nginx<br/>(ns infra, NGF 가 생성)"]
+    S --> N["NGINX 데이터 플레인 파드<br/>= Gateway main-gw (ns infra)<br/>listener http · HTTP · 80<br/>allowedRoutes: All"]
+    N -->|"HTTPRoute shop-route (ns shop)<br/>PathPrefix /cart"| CA["Service cart:8080"]
+    N -->|"PathPrefix /<br/>(/cartoon 포함 나머지)"| CT["Service catalog:80"]
+    CA --> CAP["cart 파드 :5678"]
+    CT --> CTP["catalog 파드 :5678"]
+    N -.->|"host 불일치<br/>(-H 없음 등)"| X["404 Not Found"]
+```
+
+1. 클라이언트가 Gateway 주소(`status.addresses`)의 80 포트로 요청을 보냅니다. NodePort 설치에서는 이 주소가
+   `infra` 의 `main-gw-nginx` Service ClusterIP 입니다. 클러스터 밖에서는 `<노드IP>:<NodePort>` 로 같은 Service 에 들어옵니다.
+2. 요청은 Gateway `main-gw` 의 실체인 NGINX 파드에 도착하고, listener `http`(HTTP/80)가 받습니다. 이 listener 는
+   `allowedRoutes.namespaces.from: All` 이라 `shop` 네임스페이스의 route 도 붙을 수 있습니다.
+3. NGINX 는 Host 가 `shop.example.com` 인지 본 뒤 경로를 비교합니다. 가장 긴 prefix 가 이기므로 `/cart`, `/cart/items` 는
+   Service `cart` 포트 8080으로, 그 밖의 경로는 Service `catalog` 포트 80으로 갑니다. Host 가 다르면 404를 직접 돌려줍니다.
+4. 각 Service 가 `targetPort` 5678 의 파드로 요청을 넘기고, 응답이 같은 길로 돌아옵니다. 경로는 바뀌지 않고 그대로 전달됩니다.
+
 ## 검증
 
 ```bash
