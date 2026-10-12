@@ -75,6 +75,28 @@ spec:
 route 가 `Accepted=False` 가 됩니다. backend 는 route 와 같은 네임스페이스에 있으므로 ReferenceGrant 는
 필요 없습니다.
 
+### 트래픽 흐름
+
+```mermaid
+flowchart LR
+    C["curl<br/>Host: blog.example.com"] -->|"GW 주소:80"| S["Service public-gw-nginx<br/>(ns gateway, NGF 가 생성)"]
+    S --> N["NGINX 데이터 플레인 파드<br/>= Gateway public-gw (ns gateway)<br/>listener http · HTTP · 80<br/>allowedRoutes: All"]
+    N -->|"HTTPRoute blog (ns blog)<br/>PathPrefix /api"| A["Service blog-api:8080"]
+    N -->|"PathPrefix /<br/>(/apiv2 포함 나머지)"| W["Service blog:80"]
+    A --> AP["blog-api 파드 :5678<br/>→ blog-api"]
+    W --> WP["blog 파드 :5678<br/>→ blog-web"]
+    N -.->|"host 불일치<br/>(-H 없음 등)"| X["404 Not Found"]
+```
+
+1. 클라이언트가 Gateway 주소(`status.addresses`)의 80 포트로 요청을 보냅니다. NodePort 설치에서는 이 주소가
+   `gateway` 의 `public-gw-nginx` Service ClusterIP 입니다. 클러스터 밖에서는 `<노드IP>:<NodePort>` 로 같은 Service 에 들어옵니다.
+2. 요청은 Gateway `public-gw` 의 실체인 NGINX 파드에 도착하고, listener `http`(HTTP/80)가 받습니다. 이 listener 는
+   `allowedRoutes.namespaces.from: All` 이라 `blog` 네임스페이스의 HTTPRoute 도 붙을 수 있습니다.
+3. NGINX 는 Host 가 `blog.example.com` 인지 본 뒤 경로를 비교합니다. 가장 긴 prefix 가 이기므로 `/api`, `/api/posts` 는
+   Service `blog-api` 포트 8080으로, 그 밖의 경로는 Service `blog` 포트 80으로 갑니다. Host 가 다르면 404를 직접 돌려줍니다.
+4. 각 Service 가 `targetPort` 5678 의 파드로 요청을 넘기고 `blog-web` / `blog-api` 응답이 같은 길로 돌아옵니다.
+   Ingress `blog` 는 트래픽 경로에 없고 규칙을 읽어 오는 원본일 뿐이라, HTTPRoute 확인이 끝난 뒤 지워도 응답은 그대로입니다.
+
 ## 검증
 
 ```bash
