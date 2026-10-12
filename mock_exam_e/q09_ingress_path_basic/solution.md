@@ -62,6 +62,24 @@ spec:
 `pathType: Required value` 검증 에러로 거부됩니다. `Prefix` 는 경로 요소 단위 일치라 `/echo`,
 `/echo/`, `/echo/a` 는 맞고 `/echoes` 는 맞지 않습니다.
 
+### 트래픽 흐름
+
+```mermaid
+flowchart LR
+    C["curl<br/>Host: example.org"] -->|"노드IP:NodePort<br/>(또는 ADDRESS:80)"| S["Service nginx-ingress<br/>(ns nginx-ingress, NodePort)"]
+    S --> N["NGINX Ingress Controller 파드<br/>IngressClass nginx 담당"]
+    N -->|"Ingress echo (ns echo)<br/>host example.org · Prefix /echo"| E["Service echo-svc:8080"]
+    E --> P["echo 파드 :5678"]
+    N -.->|"host 불일치 또는<br/>/echoes 처럼 경로 불일치"| X["404 Not Found"]
+```
+
+1. 클라이언트가 컨트롤러 Service `nginx-ingress` 로 요청을 보냅니다. 이 실습 환경은 NodePort 라 `<노드IP>:<NodePort>` 로
+   들어오고, LoadBalancer 가 있는 클러스터라면 Ingress ADDRESS 의 80 포트로 들어옵니다.
+2. 요청은 NGINX Ingress Controller 파드에 도착합니다. 이 컨트롤러는 `ingressClassName: nginx` 인 Ingress 만 읽어 NGINX 설정을 만듭니다.
+3. NGINX 는 Host 가 `example.org` 인지 본 뒤 경로를 `Prefix /echo` 와 비교합니다. `/echo`, `/echo/a` 는 Service `echo-svc` 포트
+   8080으로 가고, Host 가 다르거나 `/echoes` 처럼 경로 요소가 다르면 404를 직접 돌려줍니다.
+4. Service `echo-svc` 가 `targetPort` 5678 의 파드로 요청을 넘기고, 응답(200, `echo`)이 같은 길로 돌아옵니다. 경로는 바뀌지 않고 그대로 전달됩니다.
+
 ## 검증
 
 ```bash
