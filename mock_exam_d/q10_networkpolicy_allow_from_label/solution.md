@@ -53,6 +53,43 @@ kubectl apply -f allow-frontend.yaml
 가 backend에 규칙 하나를 더합니다. 결과는 "frontend → backend:8080 만 허용"입니다. 그래서 `deny-all` 을
 건드릴 필요가 없습니다.
 
+### 그림 1 — 누가 backend 에 닿는가
+
+```mermaid
+flowchart LR
+    subgraph proj["namespace proj"]
+        F["frontend 파드<br/>app=frontend"]
+        O["other 파드<br/>app=other"]
+        B["backend 파드<br/>app=backend · :8080"]
+    end
+    F -->|"TCP 8080 허용<br/>allow-frontend<br/>규칙과 일치"| B
+    O -.-x|"일치하는 규칙 없음<br/>패킷 버림 → 타임아웃"| B
+    F -.-x|"8080 이외 포트도 막힘"| B
+```
+
+1. `allow-frontend` 의 `podSelector: app=backend` 때문에 이 정책은 backend 파드에만 적용됩니다. frontend·other 로 들어가는 트래픽은 이 정책과 상관없습니다.
+2. backend 로 들어오는 패킷은 출발지 라벨이 `app=frontend` **이고** 목적지 포트가 TCP 8080일 때만 통과합니다. `from` 과 `ports` 는 한 규칙 안에서 AND 입니다.
+3. other 에서 온 패킷은 어떤 허용 규칙과도 맞지 않아 CNI 가 버립니다. 거절 응답이 없으니 클라이언트는 타임아웃이 날 때까지 기다립니다.
+
+### 그림 2 — 정책은 합집합이다
+
+```mermaid
+flowchart LR
+    DA["deny-all<br/>podSelector: {} (모든 파드)<br/>허용 규칙 0개"]
+    AF["allow-frontend<br/>podSelector: app=backend<br/>허용: app=frontend → TCP 8080"]
+    B["backend 의 허용 목록<br/>∅ ∪ {frontend → 8080}<br/>= frontend → 8080 만"]
+    F["frontend 의 허용 목록<br/>∅ = 인그레스 전부 차단"]
+    O["other 의 허용 목록<br/>∅ = 인그레스 전부 차단"]
+    DA -->|선택| B
+    AF -->|선택| B
+    DA -->|선택| F
+    DA -->|선택| O
+```
+
+1. 두 정책 모두 backend 파드를 선택하므로 backend 는 격리 상태이고, 허용 목록은 두 정책 규칙을 합친 것입니다.
+2. `deny-all` 이 보태는 허용은 빈 집합이고, `allow-frontend` 가 "frontend → 8080" 한 줄을 보탭니다. 그래서 순서를 신경 쓸 필요도, `deny-all` 을 지울 필요도 없습니다.
+3. frontend·other 파드는 `deny-all` 에만 선택되므로 여전히 모든 인그레스가 막혀 있습니다. 이 문제 범위 밖이지만 실수로 넓은 정책을 만들지 않았는지 확인할 때 기준이 됩니다.
+
 ## 검증
 
 ```bash
