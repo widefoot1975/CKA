@@ -4,6 +4,19 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Deployment `apache-web` in namespace `autoscale` runs `httpd:2.4`, and its container already
+> requests `100m` CPU. metrics-server is installed.
+>
+> 1. Create a HorizontalPodAutoscaler named `apache-web` in namespace `autoscale` with API version
+>    `autoscaling/v2`. It targets Deployment `apache-web` with `minReplicas: 1`, `maxReplicas: 4`
+>    and a target average CPU utilization of `50%`.
+> 2. When scaling down, the HPA must use a stabilization window of `30` seconds.
+> 3. Confirm that the HPA reports an actual CPU percentage instead of `<unknown>`.
+
+**해석**
+
 `autoscale` 네임스페이스의 Deployment `apache-web` 은 `httpd:2.4` 를 실행하고, 컨테이너에는 이미
 CPU request `100m` 가 있다. metrics-server는 설치되어 있다.
 
@@ -63,6 +76,24 @@ spec:
 `Utilization` 은 실제 사용량을 컨테이너의 `requests.cpu` 로 나눈 비율입니다. request `100m` 가 이미
 있으므로 파드 평균 사용량이 `50m` 을 넘으면 늘어납니다. request가 없거나 metrics-server가 없으면
 `TARGETS` 가 `<unknown>` 에 머뭅니다.
+
+### 그림 — HPA 가 replica 수를 정하는 흐름
+
+```mermaid
+flowchart LR
+    MS["metrics-server<br/>파드별 CPU 사용량"] --> H
+    T["파드 템플릿<br/>requests.cpu 100m"] --> H
+    H["HPA apache-web · 15초마다<br/>사용률 = 사용량 ÷ 100m<br/>권장 = ceil(현재 replica × 사용률 ÷ 50%)"] --> C{"권장값이<br/>현재보다 작은가?"}
+    C -->|"아니오 · 스케일 업"| UP["바로 적용<br/>scaleUp 기본 구간 0초"]
+    C -->|"예 · 스케일 다운"| DN["최근 30초 권장값 중<br/>가장 큰 값을 적용"]
+    UP --> D["Deployment apache-web<br/>replicas 1 ~ 4 범위"]
+    DN --> D
+```
+
+1. HPA 는 metrics-server 의 사용량을 파드 템플릿의 `requests.cpu`(100m) 로 나눠 사용률을 구합니다. 둘 중 하나라도 없으면 계산이 안 되어 `<unknown>` 입니다.
+2. 사용률이 목표 50% 보다 높으면 권장값이 커지고 곧바로 반영됩니다. 예를 들어 파드 1개가 120% 면 `ceil(1 × 120 ÷ 50) = 3` 개로 늘어납니다.
+3. 부하가 빠져 권장값이 작아져도 최근 30초 안에 더 큰 권장값이 있었다면 그 값을 씁니다. 30초 동안 계속 낮게 나와야 줄어들고, 기본값(300초)보다 훨씬 빨리 반응합니다.
+4. 마지막으로 결과를 `minReplicas`~`maxReplicas`(1~4) 범위로 자른 값이 Deployment 의 replicas 가 됩니다.
 
 ## 검증
 

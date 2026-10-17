@@ -4,6 +4,19 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `web`, Deployment `api` (image `nginx:1.27`) loads all keys of ConfigMap
+> `app-config` as environment variables through `envFrom`. The ConfigMap currently contains
+> `LOG_LEVEL=debug`.
+>
+> 1. Change `LOG_LEVEL` in ConfigMap `app-config` to `info`.
+> 2. Make ConfigMap `app-config` immutable so that its data can no longer be changed.
+> 3. Make the Pods of Deployment `api` use the new value without deleting the Deployment,
+>    and verify with `kubectl exec` that `LOG_LEVEL=info` is set in a running Pod.
+
+**해석**
+
 네임스페이스 `web` 의 Deployment `api`(image `nginx:1.27`)는 `envFrom` 으로 ConfigMap `app-config` 의 모든
 키를 환경 변수로 읽는다. ConfigMap 에는 현재 `LOG_LEVEL=debug` 가 들어 있다.
 
@@ -50,6 +63,20 @@ ReplicaSet 으로 롤링 교체합니다. (볼륨으로 마운트한 ConfigMap �
 `immutable` 을 `false` 로 되돌릴 수도 없습니다. 다시 바꾸려면 ConfigMap 을 지우고 새로 만든 뒤 파드를
 재시작해야 합니다. 대신 kubelet 이 immutable ConfigMap 은 감시(watch)하지 않으므로 API server 부하가
 줄어듭니다.
+
+### 그림 — 환경 변수가 새 값을 보게 되는 순서
+
+```mermaid
+flowchart LR
+    C1["app-config<br/>LOG_LEVEL=debug"] -->|"1 patch data"| C2["app-config<br/>LOG_LEVEL=info"]
+    C2 -->|"2 immutable: true"| C3["app-config 잠김<br/>data 수정·되돌리기 불가"]
+    C1 -.->|"envFrom 은 컨테이너<br/>시작 때 한 번만 읽음"| OP["옛 파드<br/>LOG_LEVEL=debug 그대로"]
+    C3 -->|"3 rollout restart<br/>새 컨테이너가 시작하며 읽음"| NP["새 파드<br/>LOG_LEVEL=info"]
+```
+
+1. 옛 파드는 시작할 때 `debug` 를 환경 변수로 받았고, ConfigMap 을 바꿔도 그 값은 그대로입니다.
+2. 값을 먼저 `info` 로 바꾸고 나서 잠급니다. 순서를 바꾸면 잠긴 ConfigMap 은 고칠 수 없어서 지우고 다시 만들어야 합니다.
+3. `rollout restart` 로 새 파드가 뜰 때 컨테이너가 다시 ConfigMap 을 읽어 `info` 를 받습니다. 옛 파드는 롤링 교체로 사라집니다.
 
 ## 검증
 

@@ -4,6 +4,24 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `team-a` must be capped, and its users must not have to write resource fields
+> by hand.
+>
+> 1. Create namespace `team-a` and a ResourceQuota named `team-a-quota` with
+>    `requests.cpu: "1"`, `requests.memory: 1Gi`, `limits.cpu: "2"`,
+>    `limits.memory: 2Gi`, `pods: "10"`, `configmaps: "5"`.
+> 2. Try to create a pod named `probe` with image `nginx:1.27` and **no** resource fields.
+>    Write the exact rejection message to `/opt/q06/rejected.txt`.
+> 3. Create a LimitRange named `team-a-defaults` for `Container` with
+>    `defaultRequest` cpu `100m` / memory `128Mi`, `default` cpu `200m` /
+>    memory `256Mi`, and `max` cpu `500m`.
+> 4. Create `probe` again, still with no resource fields, and show the values it was given.
+> 5. Show the quota's used-versus-hard figures and confirm `requests.cpu` used is `100m`.
+
+**해석**
+
 `team-a` 네임스페이스에 상한을 걸어야 하고, 사용자가 리소스 필드를 직접 쓰지 않아도 되게 해야 한다.
 
 1. 네임스페이스 `team-a` 와 ResourceQuota `team-a-quota` 를 만든다. `requests.cpu: "1"`,
@@ -72,6 +90,25 @@ kubectl -n team-a run probe --image=nginx:1.27      # 이제 통과한다
 
 LimitRange는 admission 시점에만 동작합니다. 이미 떠 있는 파드에 소급 적용되지 않으므로,
 순서를 거꾸로 해서 파드를 먼저 만들었다면 다시 만들어야 합니다.
+
+### 그림 — `probe` 생성 요청이 거치는 어드미션
+
+```mermaid
+flowchart LR
+    R["kubectl run probe<br/>resources 없음"] --> L{"LimitRange<br/>team-a-defaults 가 있나?"}
+    L -->|"없음 · 2번 시점"| Q1{"ResourceQuota<br/>requests·limits 값이 있나?"}
+    Q1 -->|"없음"| X1["Forbidden<br/>must specify limits.cpu ..."]
+    L -->|"있음 · 4번 시점"| F["기본값 채움<br/>req 100m / 128Mi<br/>lim 200m / 256Mi"]
+    F --> M{"cpu limit 이<br/>max 500m 이하인가?"}
+    M -->|"아니오"| X2["Forbidden<br/>maximum cpu usage per Container is 500m"]
+    M -->|"예"| Q2["ResourceQuota 계산<br/>requests.cpu used += 100m"]
+    Q2 --> OK["파드 생성"]
+```
+
+1. LimitRange 는 쿼터보다 먼저 동작해서, 비어 있는 requests·limits 를 `defaultRequest`·`default` 로 채웁니다.
+2. 2번 시점에는 LimitRange 가 없으므로 파드가 빈 값으로 쿼터에 도착하고, 쿼터는 계산할 수 없는 파드라서 거부합니다.
+3. 4번 시점에는 값이 채워진 채로 도착합니다. LimitRange 가 `max` 를 검사하고, 통과하면 쿼터가 used 에 `100m` 을 더하고 파드가 만들어집니다.
+4. 같은 흐름에서 `limits.cpu: 900m` 을 직접 쓴 파드는 기본값 단계를 지나도 `max` 검사에서 거부됩니다. 검증 마지막의 `big` 파드가 이 경우입니다.
 
 ## 검증
 

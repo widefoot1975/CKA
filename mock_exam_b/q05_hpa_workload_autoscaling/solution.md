@@ -4,6 +4,24 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `web` contains deployment `frontend` (image `nginx:1.27`, 1 replica) with no
+> resource fields set. Its owner reports that an HPA they created shows `<unknown>` for CPU.
+>
+> 1. Give the `frontend` container a CPU request of `100m` and a CPU limit of `200m`,
+>    without editing a manifest file on disk.
+> 2. Create a HorizontalPodAutoscaler named `frontend-hpa` in `web` using
+>    `autoscaling/v2`, targeting the `frontend` deployment, `minReplicas: 2`,
+>    `maxReplicas: 8`, scaling on average CPU **utilization** of `60%`. When scaling down,
+>    it must use a stabilization window of `30` seconds.
+> 3. Confirm the HPA reports a real percentage in the `TARGETS` column rather than
+>    `<unknown>`, and that replicas settled at 2.
+> 4. Write to `/opt/q05/answer.txt` the two prerequisites that must hold before an
+>    `averageUtilization` metric can be computed at all.
+
+**해석**
+
 `web` 네임스페이스에 deployment `frontend`(image `nginx:1.27`, replica 1)가 있고 리소스 필드가
 설정되어 있지 않다. 담당자는 자신이 만든 HPA의 CPU가 `<unknown>` 으로 나온다고 한다.
 
@@ -87,6 +105,22 @@ spec:
 `unable to get metrics for resource cpu` 로 같은 `<unknown>` 을 보여줍니다. 그래서 답은:
 **컨테이너에 `requests.cpu` 가 있어야 하고, metrics-server가 동작해 `metrics.k8s.io` 를
 서비스해야 한다.**
+
+### 그림 — `averageUtilization` 이 계산되는 두 전제
+
+```mermaid
+flowchart LR
+    P["frontend 파드들"] --> K["kubelet<br/>컨테이너 CPU 사용량"]
+    K --> MS["metrics-server<br/>metrics.k8s.io API"]
+    MS -->|"전제 2 · 없으면<br/>unable to get metrics"| H
+    T["파드 템플릿<br/>requests.cpu 100m<br/>limits.cpu 200m"] -->|"전제 1 · 없으면<br/>missing request for cpu"| H
+    H["frontend-hpa<br/>사용률 = 사용량 ÷ requests.cpu<br/>목표 60%"] -->|"replicas 2 ~ 8"| D["Deployment frontend"]
+    D --> P
+```
+
+1. 사용량은 kubelet 에서 metrics-server 를 거쳐 `metrics.k8s.io` API 로 HPA 에 옵니다. metrics-server 가 없거나 죽어 있으면 분자가 없어서 `<unknown>` 입니다.
+2. 분모는 파드 템플릿의 `requests.cpu` 입니다. limit `200m` 은 계산에 쓰이지 않습니다. 이 문제의 처음 상태처럼 request 가 없으면 분모가 없어서 역시 `<unknown>` 입니다.
+3. 두 전제가 갖춰지면 HPA 가 비율을 계산하고, 부하가 거의 없어도 `minReplicas: 2` 때문에 replica 는 2 로 맞춰집니다.
 
 ## 검증
 

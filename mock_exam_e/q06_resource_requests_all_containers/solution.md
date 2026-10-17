@@ -4,6 +4,19 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Deployment `wordpress` in namespace `wp` has an init container `init-perms` and an app container
+> `wordpress`. Neither of them has resource requests or limits.
+>
+> 1. Scale Deployment `wordpress` to `0` replicas before you change it.
+> 2. Set exactly these resources on **both** the init container `init-perms` and the container
+>    `wordpress`: requests `cpu: 250m`, `memory: 256Mi`; limits `cpu: 500m`, `memory: 512Mi`.
+> 3. Scale the Deployment to `3` replicas. Confirm that all 3 pods are `Running` and ready, and that
+>    both containers in the pod template carry the new resources.
+
+**해석**
+
 `wp` 네임스페이스의 Deployment `wordpress` 에는 init 컨테이너 `init-perms` 와 앱 컨테이너
 `wordpress` 가 있다. 둘 다 리소스 request나 limit이 없다.
 
@@ -65,6 +78,40 @@ kubectl -n wp patch deploy wordpress --type=json -p='[
 kubectl -n wp scale deploy wordpress --replicas=3
 kubectl -n wp rollout status deploy wordpress
 ```
+
+### 그림 1 — 파드 하나의 컨테이너와 실효 request
+
+```mermaid
+flowchart LR
+    subgraph pod["wordpress 파드 1개"]
+        direction LR
+        I["1단계 init-perms · initContainers<br/>req 250m / 256Mi<br/>lim 500m / 512Mi<br/>실행 후 종료"] --> A["2단계 wordpress · containers<br/>req 250m / 256Mi<br/>lim 500m / 512Mi<br/>계속 실행"]
+    end
+    pod --> S["스케줄러가 보는 파드 request<br/>CPU max(250m, 250m) = 250m<br/>메모리 max(256Mi, 256Mi) = 256Mi"]
+    S --> N["replicas 3<br/>클러스터에 750m · 768Mi 필요"]
+```
+
+1. init 컨테이너는 앱 컨테이너보다 먼저 혼자 실행되고 끝납니다. 그래서 두 값을 더하지 않고, "가장 큰 init 컨테이너"와 "앱 컨테이너 합" 중 큰 쪽이 파드의 request 가 됩니다.
+2. 두 컨테이너가 같은 값이므로 파드 request 는 `250m`/`256Mi` 이고, 3개면 클러스터 전체에 `750m`/`768Mi` 여유가 있어야 모두 `Running` 이 됩니다.
+3. 두 컨테이너는 `initContainers` 와 `containers` 라는 서로 다른 목록에 있으므로 리소스도 두 경로에 각각 넣어야 합니다.
+
+### 그림 2 — 왜 0 으로 줄이고 고치는가
+
+```mermaid
+flowchart LR
+    subgraph bad["3개인 채로 고치면"]
+        direction LR
+        B1["template patch"] --> B2["롤링 업데이트<br/>새 파드부터 생성"] --> B3{"새 request 가<br/>노드에 맞나?"}
+        B3 -->|"아니오"| B4["새 파드 Pending<br/>옛 파드 Running<br/>반쯤 넘어간 상태"]
+    end
+    subgraph good["0 으로 줄이고 고치면"]
+        direction LR
+        G1["scale 0<br/>파드 없음"] --> G2["template patch<br/>교체할 파드 없음"] --> G3["scale 3<br/>3개 모두 새 값으로 생성"]
+    end
+```
+
+1. 파드가 떠 있는 상태에서 템플릿을 바꾸면 Deployment 는 새 파드를 먼저 만들고 옛 파드를 지웁니다. 새 request 가 노드에 맞지 않으면 그 중간에서 멈춥니다.
+2. 0 에서 고치면 바뀌는 것은 템플릿뿐이고, 3 으로 늘릴 때 만들어지는 파드는 모두 새 값을 가집니다. 문제의 1~3번 순서가 바로 이 흐름입니다.
 
 ## 검증
 

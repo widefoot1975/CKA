@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Node `worker02` is to be reserved for GPU workloads: other pods must stay off it, and GPU pods
+> must land on it.
+>
+> 1. Taint node `worker02` with `dedicated=gpu:NoSchedule` and add the label `accelerator=gpu`
+>    to it.
+> 2. Create pod `gpu-job` in namespace `default` (image `nginx:1.27`) that tolerates this taint
+>    and has the `nodeSelector` `accelerator: gpu`. Confirm it is running on `worker02`.
+> 3. Create pod `plain` in `default` (image `nginx:1.27`) with the same `nodeSelector` but without
+>    the toleration. Confirm it stays `Pending` and that its scheduling event mentions the
+>    untolerated taint.
+
+**해석**
+
 노드 `worker02` 를 GPU 워크로드 전용으로 쓰려 한다. 다른 파드는 이 노드에 올라가지 않아야 하고, GPU
 파드는 이 노드에 올라가야 한다.
 
@@ -57,6 +72,27 @@ kubectl run plain --image=nginx:1.27 \
   갈 곳이 없어 `Pending` 입니다.
 - 노드를 전용으로 만들려면 **taint(다른 파드는 막고) + 라벨/nodeSelector(GPU 파드는 모으고)** 둘 다
   필요합니다.
+
+### 그림 — 파드마다 갈 수 있는 노드
+
+```mermaid
+flowchart LR
+    G["gpu-job<br/>nodeSelector accelerator=gpu<br/>toleration dedicated=gpu"]
+    P["plain<br/>nodeSelector accelerator=gpu<br/>toleration 없음"]
+    O["다른 파드<br/>nodeSelector·toleration 없음"]
+    subgraph nodes["클러스터 노드"]
+        W2["worker02<br/>라벨 accelerator=gpu<br/>taint dedicated=gpu:NoSchedule"]
+        W1["worker01<br/>라벨·taint 없음"]
+    end
+    G ==>|"라벨 일치 + taint 용인<br/>스케줄됨"| W2
+    P -.-x|"라벨은 맞지만<br/>taint 에 막힘"| W2
+    O -->|"스케줄 가능"| W1
+    O -.-x|"taint 에 막힘"| W2
+```
+
+1. `gpu-job` 은 nodeSelector 로 후보를 `worker02` 하나로 좁히고, toleration 으로 그 노드의 taint 를 통과합니다. 두 조건이 모두 맞는 노드는 `worker02` 뿐이고, `worker01` 은 라벨이 없어서 처음부터 후보가 아닙니다.
+2. `plain` 은 nodeSelector 때문에 `worker02` 만 후보인데 taint 를 용인하지 못하므로 갈 곳이 없어 `Pending` 입니다. 이벤트에는 노드마다 떨어진 이유가 함께 나옵니다.
+3. 아무 설정이 없는 다른 파드는 taint 때문에 `worker02` 에 못 가고 `worker01` 같은 일반 노드로 갑니다. 이것이 "다른 파드는 막고 GPU 파드만 모은다"는 전용 노드의 모양입니다(그림에서 `cp01` 은 생략).
 
 ## 검증
 

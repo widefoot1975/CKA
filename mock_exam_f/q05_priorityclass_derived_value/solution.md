@@ -4,6 +4,22 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Deployment `busybox-logger` in namespace `priority` needs a high priority, just below the
+> most important existing user workload. Several user-defined PriorityClasses already exist
+> in the cluster.
+>
+> 1. Find the highest `value` among the existing user-defined PriorityClasses (ignore the
+>    built-in `system-*` classes). Create PriorityClass `high-priority` with a value exactly
+>    one less than that. It must not be the global default.
+> 2. Patch Deployment `busybox-logger` in namespace `priority` so that its Pods use
+>    PriorityClass `high-priority`.
+> 3. Confirm that the Deployment's new Pods have `spec.priority` equal to the value of
+>    `high-priority`.
+
+**해석**
+
 네임스페이스 `priority` 의 Deployment `busybox-logger` 에 높은 우선순위가 필요하다. 다만 이미 있는 가장
 중요한 사용자 워크로드보다는 바로 아래여야 한다. 클러스터에는 사용자 정의 PriorityClass 가 이미 여러 개 있다.
 
@@ -50,6 +66,42 @@ ReplicaSet 으로 롤아웃하면서 새 값을 가진 파드를 만듭니다. `
 
 `globalDefault: true` 로 만들면 `priorityClassName` 이 없는 **클러스터의 모든 새 파드**가 이 값을 받게
 되므로, 문제처럼 한 워크로드용 클래스는 반드시 `false` 로 둡니다.
+
+### 그림 1 — 값 순서와 비교 대상
+
+```mermaid
+flowchart TB
+    SN["system-node-critical · 2000001000"]
+    SC["system-cluster-critical · 2000000000"]
+    TC["team-critical · 500000<br/>사용자 정의 중 최댓값"]
+    HP["high-priority · 새로 만듦<br/>500000 - 1 = 499999"]
+    ZZ["zz-preempt-never · 400000<br/>이름순으로는 마지막"]
+    TS["team-standard · 250000"]
+    DW["default-workload · 10000<br/>globalDefault"]
+    BL["batch-low · 1000"]
+    SN --> SC
+    SC -.->|"system-* 는 비교에서 제외"| TC
+    TC --> HP --> ZZ --> TS --> DW --> BL
+```
+
+1. `--sort-by=.value` 로 보면 맨 위는 `system-*` 두 개입니다. 문제는 이 둘을 빼라고 했으므로 그 아래 `team-critical`(500000)이 기준입니다.
+2. `high-priority` 는 기준보다 정확히 1 작은 `499999` 이고, 순서상 `team-critical` 과 `zz-preempt-never` 사이에 들어갑니다.
+3. 이름순 마지막인 `zz-preempt-never` 나 globalDefault 인 `default-workload` 는 최댓값이 아닙니다. 둘 다 눈에 띄게 넣어 둔 함정입니다.
+
+### 그림 2 — 파드의 `spec.priority` 가 채워지는 시점
+
+```mermaid
+flowchart LR
+    PT["Deployment patch<br/>priorityClassName: high-priority"] --> RS["새 ReplicaSet"]
+    RS --> NP["새 파드 생성 요청"]
+    NP --> ADM["Priority 어드미션<br/>클래스 값을 조회"]
+    ADM --> R["새 파드<br/>spec.priority 499999"]
+    OLD["옛 파드<br/>default-workload · 10000"] -.->|"값은 바뀌지 않고<br/>롤아웃으로 삭제"| X["Terminating"]
+```
+
+1. 파드 템플릿에 `priorityClassName` 을 넣으면 템플릿이 바뀌므로 새 ReplicaSet 이 만들어집니다.
+2. 새 파드가 만들어질 때 Priority 어드미션 컨트롤러가 클래스 값을 찾아 `spec.priority` 에 적습니다. 그래서 `spec.priority` 를 직접 쓰지 않습니다.
+3. 옛 파드의 값은 그대로 `10000` 이고, 롤아웃이 끝나면서 지워집니다. 검증할 때 새 파드를 봐야 하는 이유입니다.
 
 ## 검증
 

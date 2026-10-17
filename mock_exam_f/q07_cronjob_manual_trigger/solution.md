@@ -4,6 +4,19 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `ops` already exists.
+>
+> 1. Create CronJob `cleanup` in namespace `ops` that runs image `busybox:1.36` with the
+>    command `sh -c 'date; echo cleanup done'` every 10 minutes. It must keep `2` successful
+>    and `1` failed Job in its history, and it must never start a new run while the
+>    previous run is still active.
+> 2. Without waiting for the schedule, run the CronJob now as a Job named `cleanup-manual`.
+> 3. Write the log output of Job `cleanup-manual` to `/opt/course/f07/run.log`.
+
+**해석**
+
 네임스페이스 `ops` 는 이미 있다.
 
 1. 네임스페이스 `ops` 에 CronJob `cleanup` 을 만든다. image `busybox:1.36` 으로 명령
@@ -66,6 +79,23 @@ kubectl -n ops logs job/cleanup-manual > /opt/course/f07/run.log
 
 `--from=cronjob/cleanup` 은 CronJob 의 `jobTemplate` 을 그대로 복사해 Job 을 즉시 만듭니다. 스케줄을
 `* * * * *` 로 바꿔 기다리는 것보다 빠르고 CronJob 설정을 건드리지 않습니다.
+
+### 그림 — CronJob, Job, 로그 파일의 관계
+
+```mermaid
+flowchart LR
+    CJ["CronJob cleanup<br/>schedule */10 · concurrencyPolicy Forbid<br/>history 성공 2 · 실패 1"]
+    CJ -->|"10분마다 jobTemplate 으로 생성<br/>이전 Job 이 active 면 건너뜀"| JS["Job cleanup-xxxxx"]
+    CJ -.->|"kubectl create job cleanup-manual<br/>--from=cronjob/cleanup"| JM["Job cleanup-manual"]
+    JS --> PS["Pod"]
+    JM --> PM["Pod<br/>출력: 날짜 + cleanup done"]
+    PM -->|"kubectl logs job/cleanup-manual"| F["/opt/course/f07/run.log"]
+```
+
+1. CronJob 자체는 컨테이너를 돌리지 않습니다. 스케줄이 되면 `jobTemplate` 으로 Job 을 만들고, 그 Job 이 파드를 만듭니다.
+2. `Forbid` 는 이전 Job 이 아직 active 이면 이번 회차를 건너뜁니다. 히스토리 한도는 끝난 Job 을 성공 2개, 실패 1개까지만 남깁니다.
+3. `--from=cronjob/cleanup` 은 같은 `jobTemplate` 을 복사해 스케줄과 관계없이 Job 하나를 바로 만듭니다. CronJob 설정은 바뀌지 않습니다.
+4. `kubectl logs job/cleanup-manual` 은 그 Job 의 파드 로그를 읽으므로, 리다이렉트로 그대로 파일에 남기면 됩니다.
 
 ## 검증
 

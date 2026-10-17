@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Deployment `synergy-app` in namespace `synergy` has a single container `app` (`busybox:1.36`)
+> that appends a line to `/var/log/app.log` every few seconds. The file lives on the `emptyDir`
+> volume `logs`, which is mounted at `/var/log`.
+>
+> 1. Add a sidecar container named `sidecar` to the Deployment: image `busybox:1.36`, command
+>    `sh -c 'tail -n+1 -F /var/log/app.log'`, mounting volume `logs` at `/var/log`.
+> 2. Define it as a **native sidecar**: an init container that keeps running for the whole life of
+>    the pod. Do not change container `app`.
+> 3. Confirm that the new pod shows `2/2` ready and that the logs of container `sidecar` show the
+>    lines written by `app`.
+
+**해석**
+
 `synergy` 네임스페이스의 Deployment `synergy-app` 에는 몇 초마다 `/var/log/app.log` 에 한 줄씩
 추가하는 컨테이너 `app`(`busybox:1.36`) 하나가 있다. 이 파일은 `/var/log` 에 마운트된 `emptyDir`
 볼륨 `logs` 에 있다.
@@ -60,6 +75,31 @@ kubectl -n synergy edit deploy synergy-app
 `-F` 를 쓰는 이유 — 사이드카는 `app` 보다 **먼저** 시작하므로 그 순간 `/var/log/app.log` 가 아직 없을
 수 있습니다. `-F` 는 파일이 생길 때까지 기다렸다가 따라가고(파일이 새로 만들어져도 다시 엽니다),
 `-f` 는 파일이 없으면 바로 실패합니다. `-n+1` 은 첫 줄부터 출력하라는 뜻입니다.
+
+### 그림 — 네이티브 사이드카가 뜨는 순서
+
+```mermaid
+sequenceDiagram
+    participant K as kubelet
+    participant S as sidecar (initContainers)
+    participant V as emptyDir logs
+    participant A as app
+    K->>S: 1. sidecar 시작
+    S->>V: tail -F /var/log/app.log
+    Note over S,V: 파일이 아직 없어도 -F 는 기다린다
+    Note over K,S: restartPolicy Always 라서<br/>종료를 기다리지 않고 다음 단계로
+    K->>A: 2. app 시작
+    loop 5초마다
+        A->>V: 한 줄 추가
+        V-->>S: 새 줄을 읽어 stdout 으로 출력
+    end
+    Note over S,A: 둘 다 실행 중이므로 READY 2/2
+```
+
+1. kubelet 은 `initContainers` 를 먼저 시작합니다. `restartPolicy: Always` 가 붙은 init 컨테이너는 "시작됨"만 확인하고 다음 단계로 넘어갑니다.
+2. sidecar 가 먼저 떠서 `app.log` 가 아직 없을 수 있지만, `tail -F` 는 파일이 생길 때까지 기다렸다가 따라갑니다.
+3. 이어서 `app` 이 시작되어 같은 `emptyDir` 에 줄을 쓰고, sidecar 는 그 줄을 자기 stdout 으로 내보냅니다. 그래서 `kubectl logs -c sidecar` 로 `app` 의 로그가 보입니다.
+4. `restartPolicy: Always` 가 없으면 1번에서 kubelet 이 sidecar 의 종료를 기다립니다. `tail -F` 는 끝나지 않으므로 2번으로 넘어가지 못하고 파드는 `Init:0/1` 에 멈춥니다.
 
 ## 검증
 
