@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `obs`, Pod `pipeline` has one init container `migrate` and two containers
+> `ingest` and `transform`. The Pod is `Running`.
+>
+> 1. Write the names of all containers of Pod `pipeline` to `/opt/course/f16/containers.txt`,
+>    one per line: init containers first, then the regular containers, each in spec order.
+> 2. Write the logs of all containers of `pipeline`, including the init container, to
+>    `/opt/course/f16/all.log`, with every line prefixed by the container it came from.
+> 3. Write only the lines containing `ERROR` that container `transform` logged in the last
+>    15 minutes, with timestamps, to `/opt/course/f16/transform-errors.log`.
+
+**해석**
+
 네임스페이스 `obs` 의 Pod `pipeline` 에는 init 컨테이너 `migrate` 하나와 컨테이너 `ingest`, `transform`
 두 개가 있다. 파드는 `Running` 이다.
 
@@ -48,6 +62,30 @@ kubectl -n obs logs pipeline
 | `--all-containers` | init 컨테이너를 포함한 모든 컨테이너. 컨테이너별로 차례로 이어 붙음(시간순 병합 아님) |
 | `--prefix` | 각 줄 앞에 `[pod/<파드>/<컨테이너>]` |
 | `--since=15m` / `--timestamps` | 최근 15분만 / 각 줄 앞에 RFC3339 타임스탬프 |
+
+### 그림 — 컨테이너 순서와 로그를 읽는 세 가지 방법
+
+```mermaid
+flowchart LR
+    subgraph POD["Pod pipeline (spec 순서)"]
+        direction TB
+        M["① migrate<br/>initContainers · Completed"]
+        I["② ingest"]
+        T["③ transform"]
+        M -->|"성공한 뒤 시작"| I
+        M -->|"성공한 뒤 시작"| T
+    end
+    M -->|"jsonpath: initContainers 다음 containers"| C["containers.txt<br/>migrate · ingest · transform"]
+    M -->|"--all-containers --prefix"| A["all.log<br/>세 컨테이너 줄이 모두 들어감"]
+    I -->|"--all-containers --prefix"| A
+    T -->|"--all-containers --prefix"| A
+    T -->|"-c transform --since=15m --timestamps"| E["grep ERROR → transform-errors.log"]
+```
+
+1. init 컨테이너 `migrate` 가 먼저 돌고 성공(exit 0)해야 `ingest` 와 `transform` 이 함께 시작합니다. 끝난 init 컨테이너는 READY 수에 들어가지 않지만 로그는 남아 있습니다.
+2. 1번 답은 `spec.initContainers` 와 `spec.containers` 를 차례로 jsonpath 로 뽑아 순서를 보장합니다. `kubectl get pod` 의 출력 순서에 기대지 않습니다.
+3. `--all-containers` 는 init 컨테이너까지 포함해 컨테이너별로 로그를 이어 붙이고, `--prefix` 가 줄마다 출처를 붙입니다.
+4. 3번은 `-c transform` 하나만 고른 뒤 `--since=15m` 으로 시간을, `--timestamps` 로 시각을 붙이고 마지막에 grep 으로 ERROR 줄만 남깁니다.
 
 ## 검증
 

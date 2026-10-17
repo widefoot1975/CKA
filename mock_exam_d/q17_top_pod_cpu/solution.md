@@ -4,6 +4,17 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> metrics-server is running in the cluster. Several pods in namespace `batch` are busy.
+>
+> 1. Write the name of the pod in namespace `batch` that currently uses the most CPU to
+>    `/opt/course/d17/pod.txt` (the pod name only).
+> 2. Write the name of the node that currently uses the most memory, in absolute terms (bytes,
+>    not percent), to `/opt/course/d17/node.txt` (the node name only).
+
+**해석**
+
 클러스터에 metrics-server가 돌고 있다. `batch` 네임스페이스의 파드 몇 개가 바쁘게 일하고 있다.
 
 1. `batch` 네임스페이스에서 지금 CPU를 가장 많이 쓰는 파드의 이름을 `/opt/course/d17/pod.txt` 에 적는다

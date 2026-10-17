@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `logs` contains pod `order-api` with an app container `api` and a native sidecar
+> container `log-agent` (declared under `initContainers` with `restartPolicy: Always`).
+>
+> 1. Write the last 10 lines of the `log-agent` container's log to `/opt/course/d16/agent.log`.
+> 2. Container `api` has restarted once. Write the log of its previous instance to
+>    `/opt/course/d16/api-previous.log`.
+> 3. Write every log line from the last 30 minutes, from all containers of the pod, that contains
+>    `ERROR` to `/opt/course/d16/errors.log`. Each line must be prefixed with the name of the
+>    container it came from.
+
+**해석**
+
 `logs` 네임스페이스에 파드 `order-api` 가 있다. 앱 컨테이너 `api` 와 네이티브 사이드카 컨테이너
 `log-agent`(`initContainers` 아래에 `restartPolicy: Always` 로 선언됨)를 갖고 있다.
 
@@ -48,6 +62,29 @@ kubectl은 `kubectl.kubernetes.io/default-container` 어노테이션이 가리�
 | `--all-containers` | init 컨테이너(사이드카 포함)까지 모든 컨테이너 |
 | `--prefix` | 줄마다 `[pod/<파드>/<컨테이너>]` 를 붙임 |
 | `--since=30m` | 최근 30분 (절대 시각은 `--since-time=<RFC3339>`) |
+
+### 그림 — 어떤 옵션이 어떤 로그를 읽는가
+
+```mermaid
+flowchart LR
+    subgraph POD["Pod order-api"]
+        direction TB
+        LA["log-agent<br/>initContainers · restartPolicy: Always<br/>네이티브 사이드카"]
+        A0["api 이전 인스턴스<br/>FATAL 후 exit 1"]
+        A1["api 현재 인스턴스<br/>RESTARTS 1"]
+        A0 -->|"재시작"| A1
+    end
+    LA -->|"-c log-agent --tail=10"| F1["agent.log"]
+    A0 -->|"-c api --previous"| F2["api-previous.log"]
+    LA -->|"--all-containers --prefix --since=30m"| F3["grep ERROR → errors.log"]
+    A1 -->|"--all-containers --prefix --since=30m"| F3
+    A1 -.->|"-c 없이 실행하면 조용히 이것만"| X["Defaulted container api"]
+```
+
+1. 네이티브 사이드카 `log-agent` 는 `initContainers` 에 있지만 끝나지 않고 앱과 함께 계속 돕니다. 로그는 일반 컨테이너처럼 `-c log-agent` 로 읽습니다.
+2. `api` 는 한 번 죽었다가 다시 시작했습니다. 죽은 인스턴스의 출력은 `--previous` 로만 볼 수 있고, 한 세대 전까지만 남습니다.
+3. `--all-containers` 는 컨테이너마다 **현재 인스턴스**의 로그를 이어 붙입니다. `--prefix` 가 줄마다 `[pod/order-api/<컨테이너>]` 를 붙여 주므로 grep 뒤에도 출처가 남습니다. 죽은 인스턴스의 줄까지 필요하면 `-c api --previous` 를 따로 읽어야 합니다.
+4. `-c` 를 빼면 kubectl 이 첫 번째 일반 컨테이너(`api`)를 골라 보여 주고 안내 문구는 stderr 로만 나옵니다. 파일로 돌리면 다른 컨테이너를 읽었다고 착각하기 쉽습니다.
 
 ## 검증
 

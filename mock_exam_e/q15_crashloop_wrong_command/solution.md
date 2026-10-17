@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Deployment `worker` in namespace `jobs` (1 replica, image `busybox:1.36`) is in
+> `CrashLoopBackOff`. Its container `worker` is supposed to print a start message and then run
+> `sleep 3600`.
+>
+> 1. Write the logs of the **previous** (crashed) instance of container `worker` to
+>    `/opt/course/e15/previous.log`.
+> 2. Write the exit code of that container's last termination to `/opt/course/e15/exitcode.txt`.
+> 3. Fix the Deployment so that the container keeps running. Do not change the image.
+> 4. Confirm that the new pod is `Running` and that its restart count does not increase any more.
+
+**해석**
+
 `jobs` 네임스페이스의 Deployment `worker`(레플리카 1, 이미지 `busybox:1.36`)가 `CrashLoopBackOff`
 상태다. 컨테이너 `worker` 는 시작 메시지를 출력한 뒤 `sleep 3600` 을 실행해야 한다.
 
@@ -62,6 +76,26 @@ kubectl -n jobs get deploy worker -o jsonpath='{.spec.template.spec.containers[0
 # ["sh","-c","echo worker starting; sleeep 3600"]
 kubectl -n jobs edit deploy worker          # sleeep → sleep, 저장하면 새 파드로 롤아웃된다
 ```
+
+### 그림 — 증거는 어디에 남는가
+
+```mermaid
+flowchart LR
+    subgraph POD["파드 worker-xxxx (파드는 그대로, 컨테이너만 다시 시작)"]
+        P["이전 인스턴스<br/>echo worker starting<br/>sleeep → not found<br/>exit 127"]
+        C["현재 인스턴스<br/>같은 명령으로 또 죽음"]
+    end
+    P -->|"kubelet 이 재시작<br/>10s → 20s → 40s … 백오프"| C
+    P -.->|"kubectl logs --previous"| L["previous.log"]
+    P -.->|"lastState.terminated.exitCode"| E["exitcode.txt = 127"]
+    FIX["Deployment 수정<br/>sleeep → sleep"] -->|"롤아웃: 새 파드 생성"| NEW["새 파드<br/>Running · RESTARTS 0"]
+    FIX -.->|"옛 파드 삭제<br/>이전 로그도 함께 사라짐"| POD
+```
+
+1. CrashLoopBackOff 는 파드를 새로 만드는 것이 아니라 **같은 파드 안에서 컨테이너를 다시 시작**하는 것입니다. 그래서 kubelet 이 직전 인스턴스 하나의 로그와 종료 기록을 보관합니다.
+2. 죽은 인스턴스의 출력은 `--previous`, 종료 코드는 `status.containerStatuses[].lastState.terminated` 에 있습니다. `state` 는 지금 인스턴스(대개 `waiting: CrashLoopBackOff`)를 가리킵니다.
+3. 재시작 사이의 대기 시간은 10초에서 두 배씩 늘어 최대 5분까지 갑니다. 그동안 STATUS 가 `CrashLoopBackOff` 로 보입니다.
+4. Deployment 템플릿을 고치면 새 ReplicaSet 이 **새 파드**를 만들고 옛 파드를 지웁니다. 옛 파드의 `--previous` 로그도 함께 없어지므로 1·2번 증거를 먼저 파일로 남겨야 합니다.
 
 ## 검증
 

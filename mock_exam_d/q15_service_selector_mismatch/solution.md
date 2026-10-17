@@ -4,6 +4,19 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `store`, requests to Service `catalog` (port 80) fail. Deployment `catalog`
+> (2 replicas, image `nginx:1.27`) is running and its pods are `Ready`.
+>
+> 1. Show that the Service has no endpoints by looking at its EndpointSlice.
+> 2. Find the reason by comparing the Service's selector with the labels of the `catalog` pods.
+> 3. Fix the Service so that it selects the `catalog` pods. Do not change the Deployment or the
+>    pods.
+> 4. Confirm that the EndpointSlice now lists 2 pod addresses.
+
+**해석**
+
 `store` 네임스페이스에서 Service `catalog`(포트 80)로 보내는 요청이 실패한다. Deployment `catalog`
 (레플리카 2, image `nginx:1.27`)는 돌고 있고 파드도 `Ready` 다.
 
@@ -49,6 +62,40 @@ EndpointSlice는 사람이 채우는 것이 아니라, EndpointSlice 컨트롤�
 IP를 자동으로 채우고 주소마다 `ready` 상태를 붙입니다(트래픽은 ready인 주소로만 감). 그래서 슬라이스가 **아예
 비어 있다면** selector가 파드를 하나도 못 찾는 것입니다. 파드 라벨을 Service에 맞추는 것은 답이 아닙니다.
 파드 라벨은 Deployment의 selector와 묶여 있어서, 바꾸면 ReplicaSet이 그 파드를 잃고 새 파드를 또 만듭니다.
+
+### 그림 1 — 고치기 전: selector 가 아무 파드도 고르지 못한다
+
+```mermaid
+flowchart LR
+    SVC["Service catalog<br/>selector: app=catalogue"]
+    ES["EndpointSlice<br/>endpoints 없음"]
+    subgraph DEP["Deployment catalog"]
+        P1["파드 1<br/>app=catalog"]
+        P2["파드 2<br/>app=catalog"]
+    end
+    SVC -->|"컨트롤러가 app=catalogue 파드를 찾음"| ES
+    ES -.-x|"라벨 불일치"| P1
+    ES -.-x|"라벨 불일치"| P2
+```
+
+### 그림 2 — 고친 뒤: selector 가 Deployment 의 파드 라벨과 같다
+
+```mermaid
+flowchart LR
+    SVC["Service catalog<br/>selector: app=catalog"]
+    ES["EndpointSlice<br/>10.244.1.8:80<br/>10.244.2.5:80"]
+    subgraph DEP["Deployment catalog"]
+        P1["파드 1<br/>app=catalog"]
+        P2["파드 2<br/>app=catalog"]
+    end
+    SVC -->|"컨트롤러가 일치하는 파드 IP 를 채움"| ES
+    ES --> P1
+    ES --> P2
+```
+
+1. Service 는 파드를 직접 가리키지 않습니다. EndpointSlice 컨트롤러가 Service 의 `selector` 와 라벨이 **모두** 일치하는 파드를 찾아 그 IP 를 EndpointSlice 에 적습니다.
+2. 그림 1에서 selector 는 `app=catalogue`, 파드 라벨은 `app=catalog` 입니다. 일치하는 파드가 0개라 슬라이스가 비고, kube-proxy 는 보낼 곳이 없어 요청이 실패합니다.
+3. 그림 2처럼 Service 쪽 selector 를 `app=catalog` 로 바꾸면 컨트롤러가 곧바로 파드 2개의 IP 를 채웁니다. 파드 라벨은 Deployment 의 selector 와 묶여 있으니 건드리지 않습니다.
 
 ## 검증
 

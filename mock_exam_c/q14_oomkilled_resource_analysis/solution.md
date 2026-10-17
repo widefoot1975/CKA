@@ -4,6 +4,28 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `prod`, Deployment `resizer` keeps restarting. `kubectl get pods` shows a
+> climbing `RESTARTS` count and the pod flips between `Running` and `CrashLoopBackOff`. The
+> image is known good; in staging the team measured a peak of about 180Mi.
+>
+> 1. Confirm the container is being killed for memory and not crashing on its own. State
+>    which field you read and what exit code you expect.
+> 2. Report the container's current memory request and limit and its actual usage, and
+>    explain in one line why it was killed even though the node has free memory.
+> 3. Set the container's memory request to `128Mi` and limit to `256Mi` on the Deployment,
+>    and confirm the restarts stop.
+> 4. Write the Pod's QoS class before and after your change to `/opt/course/q14/qos.txt`,
+>    and state what else the container would need to become `Guaranteed`.
+> 5. The standalone Pod `cache-warm` in `prod` (container `cache`) is healthy with a `64Mi`
+>    memory limit but needs more headroom before tonight's load test. Raise its memory
+>    request to `128Mi` and limit to `256Mi` **without deleting, recreating or restarting
+>    the Pod**, and show that the new values are in effect and its restart count did not
+>    change.
+
+**해석**
+
 네임스페이스 `prod` 의 Deployment `resizer` 가 계속 재시작한다. `kubectl get pods` 에서
 `RESTARTS` 가 올라가고 파드가 `Running` 과 `CrashLoopBackOff` 를 오간다. 이미지는 정상이고,
 스테이징에서 측정한 최대 메모리 사용량은 약 180Mi였다.
@@ -71,6 +93,24 @@ cgroup(`memory.max`)에 걸리는 하드 상한입니다. 컨테이너가 자기
 커널 cgroup OOM killer가 그 컨테이너만 SIGKILL합니다. 노드 전체 메모리 압박(node-level OOM /
 eviction)과는 별개의 메커니즘입니다.
 
+### 그림 1 — 노드에 여유가 있어도 죽는 이유
+
+```mermaid
+flowchart TB
+    subgraph NODE["노드 (여유 메모리 충분)"]
+        subgraph CG["컨테이너 resizer 의 cgroup · memory.max = limit 64Mi"]
+            APP["프로세스가 150M 할당 시도"]
+        end
+    end
+    APP -->|"64Mi 초과"| K["커널 cgroup OOM killer<br/>이 컨테이너만 SIGKILL"]
+    K --> S["lastState.terminated<br/>reason: OOMKilled · exitCode 137"]
+    S -->|"kubelet 재시작 → 또 초과"| APP
+```
+
+1. 메모리 limit 은 컨테이너의 cgroup `memory.max` 로 들어갑니다. 노드 전체의 남은 메모리와는 상관없는 상한입니다.
+2. 컨테이너가 이 상한을 넘으면 커널의 cgroup OOM killer 가 그 컨테이너 프로세스만 SIGKILL 로 죽입니다. 그래서 종료 코드가 128 + 9 = 137 이고 `reason` 이 `OOMKilled` 입니다.
+3. kubelet 은 컨테이너를 다시 시작하지만 같은 양을 또 잡으므로 다시 죽고, 재시작 간격이 늘면서 `CrashLoopBackOff` 와 `Running` 을 오갑니다.
+
 **3) Deployment 수정**
 
 ```bash
@@ -129,6 +169,19 @@ kubectl -n prod get pod cache-warm -o jsonpath=\
   거부되므로, 그런 변경은 파드를 다시 만들어야 합니다.
 - Deployment가 관리하는 파드에 resize를 해도 템플릿은 그대로입니다. 파드가 다시 만들어지면 원래 값으로
   돌아가므로, 오래 유지할 값은 3번처럼 템플릿에 반영합니다.
+
+### 그림 2 — 템플릿 변경(3번)과 in-place resize(5번)의 차이
+
+```mermaid
+flowchart LR
+    D["Deployment resizer<br/>kubectl set resources"] -->|"템플릿이 바뀌어 롤아웃"| NP["새 파드<br/>128Mi / 256Mi · RESTARTS 0"]
+    D -.->|"옛 파드는 삭제"| OP["옛 파드 (OOMKilled 기록째 사라짐)"]
+    P["Pod cache-warm<br/>patch --subresource resize"] -->|"kubelet 이 cgroup 값만 바꿈"| SP["같은 파드<br/>spec·status 의 resources 256Mi<br/>restartCount 그대로"]
+```
+
+1. 3번은 Deployment 의 파드 템플릿을 바꾸므로 새 ReplicaSet 이 새 파드를 만들고 옛 파드를 지웁니다. QoS 의 "변경 전" 값은 그래서 미리 적어 둬야 합니다.
+2. 5번은 파드 자체의 `resize` 서브리소스를 고칩니다. 파드 이름·UID·재시작 횟수는 그대로이고, kubelet 이 실행 중인 컨테이너의 cgroup 값만 바꿉니다.
+3. 적용이 끝났는지는 `spec` 이 아니라 `status.containerStatuses[].resources` 가 새 값과 같아졌는지로 봅니다.
 
 ## 검증
 
