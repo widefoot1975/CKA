@@ -4,6 +4,22 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Node `worker01` reports `NotReady` and its pods are stuck in `Terminating` or `Pending`.
+>
+> 1. From the control plane, identify which node condition is failing and what the kubelet
+>    last reported as the reason and message.
+> 2. On `worker01`, report whether the kubelet unit is running and read its last 50 log lines.
+> 3. Report the state of the container runtime on that node.
+> 4. Identify the root cause and repair it so the node returns to `Ready`.
+> 5. Confirm the node is `Ready` and that a new pod can be scheduled onto it.
+> 6. Write down the order in which you narrowed the cause, one line per step.
+> 7. Name one situation in which the kubelet is healthy and running but the node still
+>    reports `NotReady`.
+
+**해석**
+
 노드 `worker01` 이 `NotReady` 이고 그 위의 파드가 `Terminating` 또는 `Pending` 에서 멈춰 있다.
 
 1. 컨트롤 플레인에서 어느 node condition이 실패했는지, kubelet이 마지막으로 보고한 reason과 message가 무엇인지 확인한다.
@@ -70,6 +86,66 @@ journalctl -u kubelet -n 20 --no-pager
 
 `config.yaml` 같은 kubelet 설정 파일만 고친 경우 `daemon-reload` 는 필요 없지만, **유닛 파일이나 드롭인을 고쳤다면 `daemon-reload` 없이 `restart` 하면 systemd가 예전 내용을 그대로 씁니다.** 고쳤는데 왜 안 되냐는 상황의 절반이 이것입니다.
 
+이 문제의 `setup.sh` 로 만든 환경이라면 다음처럼 보입니다.
+
+```bash
+kubectl get node worker01 -o jsonpath='{range .status.conditions[*]}{.type}={.status}  {.reason}: {.message}{"\n"}{end}'
+# Ready=Unknown  NodeStatusUnknown: Kubelet stopped posting node status.
+
+systemctl status kubelet
+#   Loaded: loaded (...; enabled; ...)
+#   Active: activating (auto-restart) (Result: exit-code) ...   ← 켜졌다가 바로 죽기를 반복
+journalctl -u kubelet -n 50 --no-pager | grep -iE 'error|fail'
+# ... "command failed" err="failed to construct kubelet dependencies: unable to load client CA file
+#     /etc/kubernetes/pki/ca.crtx: ... open /etc/kubernetes/pki/ca.crtx: no such file or directory"
+systemctl is-active containerd    # active — 런타임은 정상
+```
+
+로그가 가리키는 파일을 찾아 경로를 고칩니다. `clientCAFile` 은 kubelet 설정 파일에 있습니다.
+
+```bash
+grep -rn 'ca.crtx' /var/lib/kubelet/config.yaml /var/lib/kubelet/kubeadm-flags.env
+ls /etc/kubernetes/pki/                           # ca.crt 만 있다
+cp /var/lib/kubelet/config.yaml /root/kubelet-config.yaml.bak
+vi /var/lib/kubelet/config.yaml                   # clientCAFile: /etc/kubernetes/pki/ca.crt
+systemctl restart kubelet                         # 유닛 파일이 아니므로 daemon-reload 는 필요 없다
+systemctl is-active kubelet                       # 잠시 뒤 다시 확인해도 active 여야 한다
+```
+
+`systemctl restart kubelet` 만 반복하면 같은 오류로 계속 죽습니다. kubelet 이 `activating (auto-restart)` 를 반복할 때는 재시작이 아니라 **로그 문장이 가리키는 파일**을 고쳐야 합니다.
+
+**6) 좁혀 간 순서 (답안 예시)**
+
+```text
+1. describe node: Ready=Unknown, "Kubelet stopped posting node status" → kubelet 이 보고를 못 함, 노드로 간다
+2. systemctl status kubelet: activating (auto-restart) → 프로세스가 켜졌다 죽기를 반복
+3. systemctl status containerd / crictl info: 정상 → 런타임은 원인이 아님
+4. journalctl -u kubelet: "unable to load client CA file /etc/kubernetes/pki/ca.crtx" → 설정 파일 경로 오류
+5. /var/lib/kubelet/config.yaml 의 clientCAFile 수정 → restart kubelet → Ready
+```
+
+### 그림 — NotReady 노드를 좁혀 가는 순서
+
+```mermaid
+flowchart TD
+    A["kubectl get nodes<br/>worker01 NotReady"] --> B{"describe node<br/>Ready 의 Status 는?"}
+    B -->|"Unknown<br/>Kubelet stopped posting node status"| C{"worker01 에서<br/>systemctl status kubelet"}
+    B -->|"False + 구체적인 메시지"| D["kubelet 은 살아 있음<br/>메시지를 따라간다<br/>(CNI, 런타임, 디스크 압박 등)"]
+    C -->|"inactive (dead)"| E["멈춤·비활성<br/>systemctl enable --now kubelet"]
+    C -->|"activating (auto-restart)"| F{"systemctl status containerd"}
+    C -->|"active (running)"| G["apiserver 도달·인증 문제<br/>kubelet.conf 의 server, 인증서"]
+    F -->|"inactive"| H["containerd 복구"]
+    F -->|"active"| I["journalctl -u kubelet<br/>마지막 에러 문장"]
+    I --> J["문장이 가리키는 파일 수정<br/>config.yaml / kubelet.conf / 드롭인"]
+    J --> K["restart kubelet<br/>(유닛·드롭인을 고쳤으면 daemon-reload 먼저)"]
+    K --> L["Ready + 새 파드 스케줄 확인"]
+```
+
+1. 컨트롤 플레인에서 `Ready` 의 값이 첫 갈림길입니다. `Unknown` 은 kubelet 의 보고가 끊긴 것이라 노드로 가서 kubelet 을 보고, `False` 는 kubelet 이 살아서 다른 문제를 알리는 것이라 메시지를 따라갑니다(7번 답이 이쪽입니다).
+2. 노드에서는 `systemctl status kubelet` 의 `Active:` 줄로 다시 갈립니다. `inactive (dead)` 는 누가 멈춘 것이고, `activating (auto-restart)` 는 켜지자마자 죽는 것이고, `active (running)` 인데도 보고가 끊겼다면 apiserver 에 닿지 못하거나 인증에 실패하는 것입니다.
+3. 켜졌다 죽기를 반복하면 런타임부터 배제합니다. containerd 가 살아 있다면 원인은 kubelet 자신의 설정이고, `journalctl` 의 마지막 에러 문장이 고칠 파일과 줄을 알려 줍니다. 이 문제는 `config.yaml` 의 `clientCAFile` 경로 오타입니다.
+4. 설정 파일만 고쳤으면 `restart` 로 충분하고, 유닛 파일이나 드롭인을 고쳤으면 `daemon-reload` 가 먼저입니다. 마지막으로 노드가 `Ready` 이고 스케줄러가 새 파드를 그 노드에 배치하는지까지 확인합니다.
+
 **7) kubelet이 정상인데 NotReady인 경우**: **CNI가 깨진 경우**입니다. kubelet은 정상 실행 중이지만 네트워크 플러그인을 초기화하지 못하면 `Ready=False` 에 `container runtime network not ready: NetworkReady=false ... cni plugin not initialized` 를 보고합니다. 이때 고칠 대상은 kubelet이 아니라 CNI DaemonSet입니다.
 
 ```bash
@@ -88,6 +164,7 @@ kubectl run probe --image=nginx:1.27 \
   --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"worker01"}}}'
 kubectl get pod probe -o wide                   # worker01 에서 Running — 스케줄러가 배치했다
 kubectl get pods -A -o wide | grep worker01     # 기존 파드가 Terminating 을 벗어남
+kubectl delete pod probe                         # 확인용 파드 정리
 ```
 
 "스케줄될 수 있는지"는 `nodeName` 으로 확인하면 안 됩니다. `nodeName` 을 직접 채우면 **스케줄러를
