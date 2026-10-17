@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> A deployment automation tool needs limited access to the `staging` namespace.
+>
+> 1. Create a ServiceAccount named `deploy-bot` in the `staging` namespace.
+> 2. Create a Role named `deployment-operator` granting
+>    - `get`, `list`, `watch`, `update` and `patch` on `deployments`
+>    - `update` and `patch` on `deployments/scale`
+>    - `get` and `list` on `pods`
+> 3. Bind the Role to the ServiceAccount with a RoleBinding named `deploy-bot-binding`.
+> 4. Verify that `deploy-bot` can scale a deployment in `staging` but **cannot** delete
+>    deployments, and **cannot** read deployments in the `default` namespace.
+
+**해석**
+
 배포 자동화 도구가 `staging` 네임스페이스에 제한된 권한으로 접근해야 한다.
 
 1. `staging` 네임스페이스에 ServiceAccount `deploy-bot` 을 만든다.
@@ -56,6 +71,29 @@ kubectl api-resources | grep -E '^deployments|^pods'
 
 `deployments/scale` 은 subresource라 별도 규칙이 필요합니다. `deployments` 만 허용하면 `kubectl scale` 이 거부됩니다.
 
+### 그림 — Role 규칙과 확인 결과
+
+```mermaid
+flowchart LR
+    SA["ServiceAccount deploy-bot<br/>(staging)"]
+    RB["RoleBinding<br/>deploy-bot-binding"]
+    subgraph role["Role deployment-operator (staging)"]
+        R1["apps · deployments<br/>get list watch update patch"]
+        R2["apps · deployments/scale<br/>update patch"]
+        R3["core · pods<br/>get list"]
+    end
+    RB -->|"subjects"| SA
+    RB -->|"roleRef"| role
+    R2 --> Y1["staging 에서 kubectl scale ✓"]
+    R1 --> Y2["staging 에서 patch ✓"]
+    SA -.-x N1["staging 에서 delete deployments ✗<br/>동사 없음"]
+    SA -.-x N2["default 에서 get deployments ✗<br/>Role 은 staging 한정"]
+```
+
+1. 규칙은 리소스마다 동사가 달라서 세 개로 나눕니다. `deployments` 와 `deployments/scale` 은 `apps` 그룹, `pods` 는 core 그룹(`""`)입니다.
+2. `kubectl scale` 은 `deployments/scale` 서브리소스를 고치므로 두 번째 규칙이 있어야 통과합니다.
+3. `delete` 는 어느 규칙에도 없으니 거부되고, Role·RoleBinding 이 `staging` 에만 있으니 `default` 의 deployment 도 읽지 못합니다.
+
 ## 검증
 
 ```bash
@@ -66,8 +104,7 @@ kubectl -n staging auth can-i patch deployments --as=$SA          # yes
 kubectl -n staging auth can-i delete deployments --as=$SA         # no
 kubectl -n default auth can-i get deployments --as=$SA            # no
 
-# 실제로 스케일해 보기
-kubectl -n staging create deploy web --image=nginx
+# 실제로 스케일해 보기 (Deployment web 은 setup 이 만들어 둔 것)
 kubectl -n staging scale deploy web --replicas=3 --as=$SA
 ```
 

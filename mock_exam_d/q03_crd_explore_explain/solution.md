@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> cert-manager is installed in the cluster. Using only `kubectl`, collect information about the
+> custom resources it added.
+>
+> 1. Write the names of all CustomResourceDefinitions whose API group ends with `cert-manager.io`
+>    to `/opt/course/d03/crds.txt`, one name per line (for example `certificates.cert-manager.io`).
+> 2. Write the `kubectl explain` documentation of the field `spec.renewBefore` of the
+>    `Certificate` resource to `/opt/course/d03/renewbefore.txt`.
+> 3. Write the short names of the `certificates` resource to `/opt/course/d03/shortnames.txt`,
+>    one per line.
+
+**해석**
+
 클러스터에 cert-manager가 설치되어 있다. `kubectl` 만 써서 cert-manager가 추가한 커스텀 리소스의
 정보를 모은다.
 
@@ -64,6 +78,26 @@ kubectl get crd certificates.cert-manager.io -o jsonpath='{.spec.names.shortName
 
 `api-resources` 한 화면에 이름, 짧은 이름, 그룹/버전, 네임스페이스 범위, Kind가 모두 나옵니다. 처음 보는
 CRD를 만나면 가장 먼저 칠 명령입니다.
+
+### 그림 — CRD 의 어느 부분을 어떤 명령으로 읽는가
+
+```mermaid
+flowchart LR
+    subgraph crd["CRD certificates.cert-manager.io"]
+        N["metadata.name<br/>&lt;plural&gt;.&lt;group&gt;"]
+        G["spec.group<br/>cert-manager.io"]
+        S["spec.names.shortNames<br/>cert, certs"]
+        SC["versions[].schema<br/>spec.renewBefore ..."]
+    end
+    N --> C1["kubectl get crd<br/>→ crds.txt"]
+    G --> C1
+    S --> C3["kubectl api-resources<br/>--api-group=cert-manager.io<br/>→ shortnames.txt"]
+    SC --> C2["kubectl explain<br/>certificates.spec.renewBefore<br/>→ renewbefore.txt"]
+```
+
+1. CRD 이름은 `<복수형>.<그룹>` 이라 이름 끝만 봐도 그룹을 알 수 있습니다. `custom-columns` 로 `spec.group` 을 같이 찍으면 `acme.cert-manager.io` 같은 하위 그룹도 놓치지 않습니다.
+2. 짧은 이름은 CRD 의 `spec.names.shortNames` 에 있고, `kubectl api-resources` 의 SHORTNAMES 열이 그 값을 그대로 보여 줍니다.
+3. 필드 문서는 CRD 의 OpenAPI 스키마에서 나오므로 `kubectl explain` 이 내장 리소스와 똑같이 동작합니다.
 
 ## 검증
 

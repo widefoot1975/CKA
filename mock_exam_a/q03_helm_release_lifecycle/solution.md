@@ -4,6 +4,27 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Use Helm to install cert-manager as a cluster component in namespace `cert-manager`.
+> Write every answer file under `/root/helm/`.
+>
+> 1. Add the chart repository `jetstack` at `https://charts.jetstack.io`, refresh the index,
+>    and write the latest version of chart `jetstack/cert-manager` to
+>    `/root/helm/version.txt`. Pass exactly that version with `--version` in every later step.
+> 2. Save the chart's default values to `/root/helm/values.yaml` **without installing
+>    anything**, and write the names of the values that control CRD installation to
+>    `/root/helm/crd-values.txt`.
+> 3. Install release `cert-manager` into `cert-manager`, creating the namespace, with the
+>    CRDs installed by the chart and the controller running `2` replicas.
+> 4. Upgrade the release so the controller runs `3` replicas **without losing any value set
+>    in step 3**. Show the release history, roll back to revision 1, and confirm the
+>    controller is back to 2 replicas and the CRDs still exist.
+> 5. Using only `kubectl`, write the documentation of the field `spec.dnsNames` of the
+>    `Certificate` resource to `/root/helm/dnsnames.txt`.
+
+**해석**
+
 Helm으로 cert-manager를 클러스터 컴포넌트로 `cert-manager` 네임스페이스에 설치한다. 답 파일은 모두
 `/root/helm/` 아래에 쓴다.
 
@@ -88,6 +109,24 @@ helm rollback cert-manager 1 -n cert-manager
 
 롤백도 **새 리비전을 만듭니다.** 리비전 1로 되돌리면 히스토리에 리비전 3이 "리비전 1의 내용"으로
 추가됩니다. 히스토리가 지워지지 않습니다.
+
+### 그림 — 리비전 히스토리
+
+```mermaid
+flowchart LR
+    R1["리비전 1 · install<br/>crds.enabled=true<br/>replicaCount=2"]
+    R2["리비전 2 · upgrade --reuse-values<br/>crds.enabled=true<br/>replicaCount=3"]
+    R3["리비전 3 · rollback 1<br/>리비전 1 의 값을 복사<br/>crds.enabled=true · replicaCount=2"]
+    R1 --> R2 --> R3
+    R1 -.->|"값 복사"| R3
+    W["reuse-values 없이 upgrade 하면<br/>crds.enabled=false 로 돌아가<br/>CRD 가 릴리스에서 빠진다"]
+    R1 -.-x W
+```
+
+1. install 이 리비전 1을 만들고, 값은 `crds.enabled=true`, `replicaCount=2` 입니다.
+2. `--reuse-values` 로 upgrade 하면 리비전 1의 값을 이어받고 `replicaCount` 만 3으로 바뀐 리비전 2가 생깁니다.
+3. `helm rollback cert-manager 1` 은 리비전 1을 되살리는 것이 아니라 리비전 1의 값과 매니페스트를 복사한 **새 리비전 3**을 만듭니다. 컨트롤러는 다시 2개가 됩니다.
+4. 점선 아래처럼 `--reuse-values` 를 빼면 `crds.enabled` 가 기본값 false 로 돌아가 CRD 가 릴리스에서 빠집니다. 그래서 이 문제의 핵심이 `--reuse-values` 입니다.
 
 **5) CRD 필드 문서는 `kubectl explain`**
 

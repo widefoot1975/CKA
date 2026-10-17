@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The file `/opt/course/e03/crd.yaml` contains a CustomResourceDefinition for
+> `widgets.demo.example.com`.
+>
+> 1. Install the CRD and confirm that the API server now serves the resource in API group
+>    `demo.example.com`.
+> 2. In namespace `default`, create a `Widget` named `blue-small` with `spec.color: blue` and
+>    `spec.size: 1`.
+> 3. List the Widgets in `default` using the resource's short name.
+> 4. Write the `apiVersion` you used for the Widget to `/opt/course/e03/apiversion.txt`.
+
+**해석**
+
 `/opt/course/e03/crd.yaml` 파일에 `widgets.demo.example.com` 의 CustomResourceDefinition이 들어 있다.
 
 1. CRD를 설치하고, API server가 이제 API 그룹 `demo.example.com` 에서 이 리소스를 서비스하는지
@@ -46,6 +60,34 @@ spec:
 
 **핵심은 CRD의 필드가 커스텀 리소스 매니페스트로 옮겨지는 방식입니다.** `apiVersion` 은
 `<spec.group>/<versions[].name>` = `demo.example.com/v1`, `kind` 는 `spec.names.kind` = `Widget` 입니다.
+
+### 그림 — CRD 필드가 Widget 매니페스트로 옮겨지는 방식
+
+```mermaid
+flowchart LR
+    subgraph crd["CRD widgets.demo.example.com"]
+        G["spec.group<br/>demo.example.com"]
+        V["spec.versions[].name<br/>v1"]
+        K["spec.names.kind<br/>Widget"]
+        SN["spec.names.shortNames<br/>wd"]
+        SC["schema<br/>color: string · size: integer"]
+    end
+    subgraph cr["Widget blue-small"]
+        AV["apiVersion:<br/>demo.example.com/v1"]
+        KD["kind: Widget"]
+        SP["spec:<br/>color: blue · size: 1"]
+    end
+    G --> AV
+    V --> AV
+    K --> KD
+    SC -->|"타입 검사"| SP
+    SN --> GET["kubectl get wd"]
+```
+
+1. `apiVersion` 은 CRD 의 `spec.group` 과 `versions[].name` 을 `/` 로 이은 값입니다. 이 값이 그대로 `apiversion.txt` 의 답입니다.
+2. `kind` 는 `spec.names.kind` 에서 대소문자까지 그대로 가져옵니다.
+3. `spec` 아래 값은 스키마가 검사합니다. `size` 는 integer 라서 따옴표를 붙이면 거부됩니다.
+4. `shortNames` 에 적힌 `wd` 가 `kubectl get` 에 쓸 수 있는 짧은 이름입니다.
 
 **1) 설치와 확인**
 

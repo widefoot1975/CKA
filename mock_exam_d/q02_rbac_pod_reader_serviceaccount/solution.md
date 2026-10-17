@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> A monitoring tool in namespace `apps` will run under its own ServiceAccount. It must be able to
+> read pods and their logs, and nothing else.
+>
+> 1. Create ServiceAccount `monitor` in namespace `apps`.
+> 2. Create Role `pod-reader` in `apps` that allows the verbs `get`, `list` and `watch` on the
+>    resources `pods` and `pods/log`.
+> 3. Bind the Role to the ServiceAccount with RoleBinding `monitor-pod-reader` in `apps`.
+> 4. Using `kubectl auth can-i` while impersonating the ServiceAccount, confirm that it can list
+>    pods and read pod logs in `apps`, but cannot delete pods.
+
+**해석**
+
 `apps` 네임스페이스의 모니터링 도구가 자기 ServiceAccount로 돌게 된다. 이 도구는 파드와 파드 로그를
 읽을 수만 있어야 하고 그 밖의 권한은 없어야 한다.
 
@@ -37,6 +51,27 @@ rules:
 `GET .../pods/<이름>/log` 를 호출하고, RBAC은 서브리소스를 `<리소스>/<서브리소스>` 로 따로 허가합니다.
 `pods` 만 허용하면 파드 목록은 보여도 로그는 `Forbidden` 입니다. `pods/exec`, `deployments/scale` 도
 같은 원리입니다.
+
+### 그림 — 권한이 연결되는 경로
+
+```mermaid
+flowchart LR
+    SA["ServiceAccount monitor<br/>system:serviceaccount:apps:monitor"]
+    RB["RoleBinding<br/>monitor-pod-reader"]
+    R["Role pod-reader<br/>get · list · watch"]
+    P["pods<br/>kubectl get pods"]
+    L["pods/log<br/>kubectl logs"]
+    X["pods 삭제 · 다른 리소스<br/>다른 네임스페이스"]
+    RB -->|"subjects"| SA
+    RB -->|"roleRef"| R
+    R -->|"허용"| P
+    R -->|"허용 (별도 항목)"| L
+    SA -.-x|"규칙 없음 → Forbidden"| X
+```
+
+1. RoleBinding 은 "누구에게(`subjects` = ServiceAccount `monitor`)"와 "어떤 권한을(`roleRef` = Role `pod-reader`)"을 잇는 다리입니다. 셋 다 `apps` 네임스페이스 안에 있습니다.
+2. Role 의 규칙은 `pods` 와 `pods/log` 를 **따로** 적어야 합니다. `pods` 만 있으면 목록은 보여도 `kubectl logs` 는 거부됩니다.
+3. RBAC 은 허용 목록이라 적지 않은 동사(`delete`)와 다른 네임스페이스는 자동으로 막힙니다.
 
 **검증은 `--as` 로 합니다.** ServiceAccount의 사용자 이름은 `system:serviceaccount:<네임스페이스>:<이름>`
 입니다. 서브리소스는 반드시 `--subresource` 로 묻습니다.

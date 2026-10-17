@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> A Kustomize base for the application `api` exists in `/opt/course/e02/base/`: Deployment `api`
+> (image `nginx:1.27`, 1 replica), Service `api` and a `kustomization.yaml`. Do not modify any file
+> under `base/`.
+>
+> 1. Create `/opt/course/e02/overlays/staging/kustomization.yaml` that uses the base and
+>    - places all resources in namespace `staging`,
+>    - sets Deployment `api` to `2` replicas,
+>    - changes the image `nginx` to `nginx:1.28`,
+>    - adds the label `env: staging` to all resources **without** changing any selector.
+> 2. Create namespace `staging` and render the overlay with `kubectl kustomize` to check it.
+> 3. Apply the overlay with `kubectl apply -k` and confirm that Deployment `api` in `staging` has
+>    2 ready replicas running `nginx:1.28`.
+
+**해석**
+
 `/opt/course/e02/base/` 에 애플리케이션 `api` 의 Kustomize 베이스가 있다. Deployment `api`(이미지
 `nginx:1.27`, 레플리카 1), Service `api`, `kustomization.yaml` 로 되어 있다. `base/` 아래의 파일은
 하나도 수정하지 않는다.
@@ -53,6 +70,31 @@ labels:
 셀렉터를 건드리지 않는 이유 — Deployment의 `spec.selector` 는 생성 후 바꿀 수 없어서, 셀렉터에도
 레이블을 넣는 구식 `commonLabels` 는 배포된 뒤 레이블을 바꾸면 apply가 거부됩니다. `labels` +
 `includeSelectors: false` 는 메타데이터에만 붙입니다. `namespace:` 는 Namespace를 만들지 않습니다.
+
+### 그림 — base 와 overlay 가 합쳐지는 과정
+
+```mermaid
+flowchart LR
+    subgraph base["base/ (수정 금지)"]
+        BD["Deployment api<br/>replicas 1 · nginx:1.27"]
+        BS["Service api<br/>selector app=api"]
+    end
+    subgraph ov["overlays/staging/kustomization.yaml"]
+        O1["namespace: staging"]
+        O2["replicas: api → 2"]
+        O3["images: nginx → 1.28"]
+        O4["labels: env=staging<br/>includeSelectors: false"]
+    end
+    base --> K["kubectl kustomize<br/>(렌더링)"]
+    ov --> K
+    K --> OUT["결과<br/>staging/Deployment api · 2개 · nginx:1.28 · env=staging<br/>staging/Service api · selector 는 app=api 그대로"]
+    OUT -->|"kubectl apply -k"| C["클러스터"]
+```
+
+1. overlay 의 `resources: ../../base` 가 base 의 매니페스트를 읽어 옵니다. base 파일은 그대로 두고 그 위에 변경을 얹습니다.
+2. `replicas` 는 리소스 이름 `api` 로, `images` 는 이미지 이름 `nginx` 로 대상을 찾습니다.
+3. `labels` 는 `includeSelectors: false` 라서 `metadata.labels` 에만 붙고, Deployment·Service 의 셀렉터는 `app=api` 그대로 남습니다.
+4. `kubectl kustomize` 는 결과를 화면에만 찍고, `kubectl apply -k` 가 같은 결과를 클러스터에 적용합니다. `staging` 네임스페이스는 미리 만들어 둬야 합니다.
 
 **2~3) 렌더링 → 적용**
 

@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The team wants the `podinfo` demo application installed with Helm. The chart version must be
+> pinned so that every later change uses exactly the same chart.
+>
+> 1. Add the chart repository `podinfo` at `https://stefanprodan.github.io/podinfo`, refresh the
+>    repository index, and write the latest version of chart `podinfo/podinfo` shown by
+>    `helm search repo` to `/opt/course/d01/version.txt`.
+> 2. Install release `podinfo` from chart `podinfo/podinfo` into namespace `demo` (create the
+>    namespace), passing exactly that version with `--version` and setting `replicaCount=2`.
+> 3. Upgrade the release, with the same chart version, to set `ui.message=hello-cka` without
+>    losing the `replicaCount` set in step 2.
+> 4. Confirm that the release history shows 2 revisions and that the release's Deployment runs
+>    2 ready pods.
+
+**해석**
+
 팀은 `podinfo` 데모 애플리케이션을 Helm으로 설치하려 한다. 이후의 모든 변경이 정확히 같은 차트를
 쓰도록 차트 버전을 고정해야 한다.
 
@@ -53,6 +70,22 @@ helm upgrade podinfo podinfo/podinfo --version $VER \
 준 값만 얹습니다. `--reuse-values` 없이 `--set ui.message=...` 만 주면 `replicaCount` 가 기본값 1로
 돌아가 파드가 하나 사라집니다. `--reuse-values` 는 이전 릴리스의 값을 가져와 그 위에 새 `--set` 을
 합칩니다. (새 값을 전혀 주지 않은 upgrade만 이전 값을 그대로 씁니다.)
+
+### 그림 — upgrade 할 때 값이 어떻게 정해지는가
+
+```mermaid
+flowchart TB
+    R1["리비전 1 (install)<br/>replicaCount=2"]
+    R1 --> A["helm upgrade --set ui.message=hello-cka<br/>(--reuse-values 없음)"]
+    R1 --> B["helm upgrade --reuse-values<br/>--set ui.message=hello-cka"]
+    A --> A2["리비전 2 값<br/>차트 기본값 + ui.message<br/>replicaCount=1 ✗ 파드 1개"]
+    B --> B2["리비전 2 값<br/>리비전 1 값 + ui.message<br/>replicaCount=2 ✓ 파드 2개"]
+```
+
+1. install 때 준 `--set replicaCount=2` 는 리비전 1의 "사용자 값"으로 저장됩니다(`helm get values` 로 보이는 값).
+2. 왼쪽 길: 새 `--set` 을 주면서 `--reuse-values` 를 빼면 Helm은 리비전 1의 사용자 값을 버리고 **차트 기본값**에서 다시 시작합니다. `replicaCount` 가 기본값 1로 돌아가 파드가 하나 줄어듭니다.
+3. 오른쪽 길: `--reuse-values` 는 리비전 1의 사용자 값을 출발점으로 삼고 그 위에 `ui.message` 만 덮어씁니다. 두 값이 모두 남습니다.
+4. 어느 길이든 `--version $VER` 을 다시 줘야 차트 버전이 리비전 1과 같게 유지됩니다.
 
 `--version` 도 upgrade마다 다시 줍니다. 빼면 그 시점 저장소의 최신 차트로 올라가 버전 고정이 깨집니다.
 
