@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Deployment `ledger` in namespace `finance` and its PVC were deleted by mistake. The data survived on
+> PersistentVolume `ledger-pv` (`250Mi`, `ReadWriteOnce`, storageClassName `manual`, reclaim policy
+> `Retain`), and an administrator has already made it `Available` again. A copy of the Deployment
+> manifest is at `/opt/course/e11/ledger-deploy.yaml`.
+>
+> 1. Create a PersistentVolumeClaim named `ledger` in namespace `finance` (`ReadWriteOnce`, `250Mi`,
+>    storageClassName `manual`) that binds to exactly `ledger-pv`.
+> 2. Edit `/opt/course/e11/ledger-deploy.yaml` so that its container mounts PVC `ledger` at
+>    `/var/lib/ledger`, then apply the file.
+> 3. Confirm that PVC `ledger` is `Bound` to `ledger-pv` and that the `ledger` pod is `Running`.
+
+**해석**
+
 `finance` 네임스페이스의 Deployment `ledger` 와 그 PVC가 실수로 삭제되었다. 데이터는
 PersistentVolume `ledger-pv`(`250Mi`, `ReadWriteOnce`, storageClassName `manual`, reclaim policy
 `Retain`)에 남아 있고, 관리자가 이미 이 PV를 다시 `Available` 상태로 만들어 두었다. Deployment
@@ -73,6 +88,35 @@ kubectl apply -f /opt/course/e11/ledger-deploy.yaml
 ```bash
 kubectl patch pv ledger-pv --type=json -p='[{"op":"remove","path":"/spec/claimRef"}]'
 ```
+
+### 그림 1 — Retain PV 의 상태 변화
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Available: PV 생성
+    Available --> Bound: PVC 와 바인딩
+    Bound --> Released: PVC 삭제 (Retain 이라 PV·데이터 유지)
+    Released --> Available: 관리자가 spec.claimRef 제거
+    Available --> Bound: 새 PVC ledger (volumeName ledger-pv)
+```
+
+1. 원래 Deployment 의 PVC 가 지워지자 `Retain` 정책 때문에 PV 는 지워지지 않고 `Released` 가 됐습니다. `claimRef` 에 옛 PVC 가 남아 있어서 이 상태로는 어떤 PVC 와도 바인딩되지 않습니다.
+2. 문제에서는 관리자가 이미 `claimRef` 를 지워 `Available` 로 돌려놓았습니다. 직접 해야 한다면 `kubectl patch ... remove /spec/claimRef` 가 이 화살표입니다.
+3. 새 PVC 는 `volumeName: ledger-pv` 로 이 PV 만 고르고, class·accessModes·용량이 맞으면 `Bound` 가 됩니다.
+
+### 그림 2 — 새 Deployment 가 예전 데이터에 닿는 경로
+
+```mermaid
+flowchart LR
+    D["Deployment ledger<br/>volumes: claimName ledger<br/>mountPath /var/lib/ledger"] --> C["PVC ledger<br/>class manual · 250Mi · RWO<br/>volumeName ledger-pv"]
+    C -->|"Bound"| V["PV ledger-pv<br/>Retain · class manual"]
+    V --> N["노드 디렉터리<br/>/srv/ledger-pv/boot.log<br/>old ledger data"]
+```
+
+1. 파드는 PV 를 직접 참조하지 않고 PVC 이름(`claimName`)만 압니다. 그래서 Deployment 에는 PVC `ledger` 를 적습니다.
+2. PVC 와 PV 의 `storageClassName` 이 둘 다 `manual` 이어야 이어집니다. PVC 에서 class 를 빼면 기본 클래스 이름이 채워져 연결이 끊깁니다.
+3. PV 가 가리키는 노드 디렉터리에 예전 파일이 남아 있으므로, 새 파드의 `/var/lib/ledger` 에서 `boot.log` 를 볼 수 있습니다.
 
 ## 검증
 

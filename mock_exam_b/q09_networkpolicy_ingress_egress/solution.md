@@ -4,6 +4,29 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `payments` holds pod `api` (label `app=api`, listening on `8080`) and pod `db`
+> (label `app=db`, listening on `5432`), exposed by Services `api` (port `8080`) and `db`
+> (port `5432`). Namespace `frontend` (label `kubernetes.io/metadata.name=frontend`) holds
+> pod `web` (label `app=web`). Namespace `scanner` holds pod `probe` (label `app=web`).
+>
+> Lock `payments` down without changing any pod.
+>
+> 1. Create a policy named `default-deny-all` in `payments` that denies all ingress and all
+>    egress for every pod in the namespace.
+> 2. Create a policy named `api-allow` in `payments` that allows ingress to `app=api` on
+>    TCP `8080` **only** from pods labelled `app=web` **in namespace `frontend`** — pod
+>    `probe` in `scanner` must stay blocked.
+> 3. In the same policy, allow egress from `app=api` to `app=db` in `payments` on TCP `5432`,
+>    and allow DNS resolution for `app=api` (UDP and TCP `53` towards `kube-system`).
+> 4. Create a policy named `db-allow` in `payments` that lets `app=db` accept TCP `5432`
+>    **only** from `app=api`.
+> 5. Verify: `web` reaches `api:8080`, `probe` does not, `api` reaches `db:5432`, `api`
+>    resolves `db.payments.svc.cluster.local`, and `api` cannot reach anything else.
+
+**해석**
+
 `payments` 네임스페이스에 파드 `api`(label `app=api`, `8080` 리슨)와 `db`(label `app=db`,
 `5432` 리슨)가 있고, 각각 Service `api`(포트 `8080`)와 `db`(포트 `5432`)로 노출되어 있다.
 `frontend` 네임스페이스(label `kubernetes.io/metadata.name=frontend`)에 파드 `web`(label
@@ -117,6 +140,38 @@ UDP만 열면 응답이 512바이트를 넘어 TCP로 재시도할 때 실패하
 
 `kubernetes.io/metadata.name` 라벨은 쿠버네티스가 모든 네임스페이스에 자동으로 붙여주므로
 라벨을 따로 달 필요가 없습니다.
+
+### 그림 1 — 정책 세 개를 적용한 뒤의 트래픽
+
+```mermaid
+flowchart LR
+    subgraph frontend["namespace frontend"]
+        W["web<br/>app=web"]
+    end
+    subgraph scanner["namespace scanner"]
+        PR["probe<br/>app=web"]
+    end
+    subgraph payments["namespace payments"]
+        A["api<br/>app=api · :8080"]
+        DB["db<br/>app=db · :5432"]
+    end
+    subgraph ks["namespace kube-system"]
+        DNS["CoreDNS<br/>:53 UDP·TCP"]
+    end
+    EXT["클러스터 밖<br/>예: example.com"]
+    W -->|"TCP 8080 허용<br/>api-allow ingress"| A
+    PR -.-x|"namespace 가 frontend 아님<br/>타임아웃"| A
+    A -->|"TCP 5432 허용<br/>api-allow egress + db-allow ingress"| DB
+    A -->|"53 허용<br/>api-allow egress"| DNS
+    A -.-x|"egress 규칙 없음"| EXT
+    W -.-x|"db-allow 는 api 만 허용"| DB
+```
+
+1. `default-deny-all` 이 `payments` 의 모든 파드를 들어오는 쪽·나가는 쪽 모두 격리합니다. 그림의 실선은 그 위에 다른 정책이 다시 열어 준 길입니다.
+2. `web → api` 는 namespace(`frontend`)와 파드 라벨(`app=web`)이 한 항목 안에서 AND 로 맞아서 통과합니다. `probe` 는 라벨은 같지만 namespace 가 `scanner` 라 막힙니다.
+3. `api → db` 는 출발지 `api` 의 egress(`api-allow`)와 목적지 `db` 의 ingress(`db-allow`)가 **둘 다** 열려 있어서 통과합니다. 둘 중 하나만 빠져도 타임아웃입니다.
+4. `api → CoreDNS` 는 `api-allow` 의 두 번째 egress 규칙이 엽니다. CoreDNS 쪽에는 정책이 없으므로 ingress 는 따로 열 필요가 없습니다.
+5. 그 밖의 목적지는 `api` 의 egress 규칙에 없으므로 막힙니다. 이름 해석은 되지만 연결이 타임아웃되는 것이 정상입니다.
 
 ## 검증
 

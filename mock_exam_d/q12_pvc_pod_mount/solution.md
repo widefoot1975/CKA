@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `data` exists. StorageClass `local-path` (provisioner `rancher.io/local-path`,
+> volumeBindingMode `WaitForFirstConsumer`) is available.
+>
+> 1. Create a PersistentVolumeClaim `app-data` in `data` that requests `1Gi` with access mode
+>    `ReadWriteOnce` from StorageClass `local-path`. Confirm that it is `Pending` while no pod
+>    uses it.
+> 2. Create pod `writer` in `data` (image `busybox:1.36`) that mounts the claim at `/data` and
+>    runs `sh -c 'date > /data/out.txt; sleep 3600'`.
+> 3. Confirm that the claim is now `Bound` and that `/data/out.txt` in the pod contains the date.
+
+**해석**
+
 `data` 네임스페이스가 있다. StorageClass `local-path`(provisioner `rancher.io/local-path`, volumeBindingMode
 `WaitForFirstConsumer`)를 쓸 수 있다.
 
@@ -66,6 +80,30 @@ spec:
     persistentVolumeClaim:
       claimName: app-data         # PVC 이름
 ```
+
+### 그림 1 — WaitForFirstConsumer 에서 PVC 가 Bound 되기까지
+
+```mermaid
+sequenceDiagram
+    participant U as 나 (kubectl)
+    participant API as API 서버
+    participant S as 스케줄러
+    participant P as local-path 프로비저너
+    participant K as 노드의 kubelet
+    U->>API: PVC app-data 생성
+    Note over API: Pending (파드가 아직 없음)
+    U->>API: 파드 writer 생성 (claimName app-data)
+    S->>API: 노드 선택, PVC 에 selected-node 표시
+    P->>API: 그 노드에 PV pvc-uid 생성
+    Note over API: PV 와 PVC 바인딩, Bound
+    S->>API: 파드를 그 노드에 배치
+    K->>K: 노드 디렉터리를 /data 에 마운트, 컨테이너 시작
+```
+
+1. PVC 만 만들었을 때는 아무 일도 일어나지 않고 `Pending` 입니다. `describe pvc` 의 `WaitForFirstConsumer` 이벤트가 이 단계입니다.
+2. PVC 를 쓰는 파드가 생기면 스케줄러가 노드를 먼저 고르고, 그 노드 이름을 PVC 에 적어 둡니다.
+3. 프로비저너가 그 노드의 디렉터리로 PV 를 만들면 PVC 가 `Bound` 가 되고, 파드가 같은 노드에 배치됩니다. PV 에 node affinity 가 붙으므로 이 PVC 를 쓰는 파드는 앞으로도 그 노드로만 갑니다.
+4. kubelet 이 볼륨을 `/data` 에 마운트한 뒤 컨테이너가 `date > /data/out.txt` 를 실행합니다.
 
 ## 검증
 

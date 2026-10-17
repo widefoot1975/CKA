@@ -4,6 +4,22 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `proj` contains Secret `db-cred` with key `password` and ConfigMap `app-cfg`
+> with key `app.conf`.
+>
+> 1. Create Pod `projected-demo` in namespace `proj` with label `app=demo`, image
+>    `busybox:1.36` and command `sleep 3600`.
+> 2. Mount a single `projected` volume read-only at `/etc/app` in that Pod. It must provide:
+>    - key `password` of Secret `db-cred` as `/etc/app/password`
+>    - key `app.conf` of ConfigMap `app-cfg` as `/etc/app/app.conf`
+>    - the Pod's labels (Downward API field `metadata.labels`) as `/etc/app/labels`
+> 3. Verify with `ls` and `cat` inside the Pod that all three files exist and contain the
+>    expected data.
+
+**해석**
+
 네임스페이스 `proj` 에 키 `password` 를 가진 Secret `db-cred` 와 키 `app.conf` 를 가진 ConfigMap `app-cfg`
 가 있다.
 
@@ -62,6 +78,23 @@ spec:
 경로 기준의 파일 이름입니다. 소스가 바뀌면 kubelet 이 파일을 잠시 뒤 갱신합니다(`subPath` 로 마운트한
 경우는 갱신되지 않습니다).
 
+### 그림 1 — 소스 셋이 볼륨 하나로 합쳐지는 모습
+
+```mermaid
+flowchart LR
+    S["Secret db-cred<br/>key password"] -->|"items path: password"| V
+    C["ConfigMap app-cfg<br/>key app.conf"] -->|"items path: app.conf"| V
+    L["파드 자신의 metadata.labels<br/>app=demo"] -->|"downwardAPI path: labels"| V
+    V["projected 볼륨 app-files<br/>sources 3개"] -->|"volumeMounts readOnly"| M
+    subgraph P["파드 projected-demo"]
+        M["/etc/app/<br/>password · app.conf · labels"]
+    end
+```
+
+1. `volumes[]` 에는 `app-files` 볼륨이 하나뿐이고, 그 안의 `projected.sources[]` 에 Secret·ConfigMap·downwardAPI 세 소스를 나열합니다.
+2. 각 소스의 `items[].path` 가 마운트 디렉터리 안의 파일 이름이 됩니다. 그래서 세 파일이 모두 `/etc/app` 바로 아래에 생깁니다.
+3. 컨테이너는 이 볼륨 하나를 `/etc/app` 에 `readOnly: true` 로 마운트합니다. Secret 볼륨과 ConfigMap 볼륨을 따로 만들어 같은 경로에 마운트하면 안 되는 이유가 이 구조입니다.
+
 ## 검증
 
 ```bash
@@ -71,8 +104,8 @@ kubectl -n proj exec projected-demo -- ls /etc/app
 # labels
 # password
 kubectl -n proj exec projected-demo -- cat /etc/app/labels     # app="demo"
-kubectl -n proj exec projected-demo -- cat /etc/app/password   # Secret 값 (base64 가 풀린 평문)
-kubectl -n proj exec projected-demo -- cat /etc/app/app.conf   # ConfigMap 내용
+kubectl -n proj exec projected-demo -- cat /etc/app/password   # S3cr3t-pw (base64 가 풀린 평문)
+kubectl -n proj exec projected-demo -- cat /etc/app/app.conf   # log_level=info
 kubectl -n proj exec projected-demo -- touch /etc/app/x
 # touch: /etc/app/x: Read-only file system
 ```

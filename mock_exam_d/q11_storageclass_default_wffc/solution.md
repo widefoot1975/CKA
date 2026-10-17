@@ -4,6 +4,19 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The local-path provisioner (`rancher.io/local-path`) is installed, and the cluster already has
+> a default StorageClass.
+>
+> 1. Create StorageClass `local-fast` with provisioner `rancher.io/local-path`, reclaimPolicy
+>    `Delete` and volumeBindingMode `WaitForFirstConsumer`.
+> 2. Make `local-fast` the default StorageClass of the cluster.
+> 3. Make the StorageClass that was the default before (check `kubectl get sc`) no longer the
+>    default, and confirm that exactly one StorageClass is marked `(default)`.
+
+**해석**
+
 local-path 프로비저너(`rancher.io/local-path`)가 설치되어 있고, 클러스터에는 이미 기본(default)
 StorageClass가 있다.
 
@@ -50,6 +63,24 @@ kubectl patch sc local-path -p \
 **`WaitForFirstConsumer`** 는 PVC를 만들어도 바로 볼륨을 만들지 않고, 그 PVC를 쓰는 파드가 스케줄될 때까지
 기다렸다가 **파드가 배치된 노드에** 볼륨을 만듭니다. local-path처럼 노드 디스크를 쓰는 스토리지에 필요한
 설정이고, 그동안 PVC가 `Pending` 인 것은 정상입니다. `Immediate`(기본값)는 PVC를 만들자마자 프로비저닝합니다.
+
+### 그림 1 — PVC 의 storageClassName 이 정해지는 방식
+
+```mermaid
+flowchart TD
+    PVC["PVC 생성"] --> Q{"spec.storageClassName"}
+    Q -->|"필드를 아예 생략"| D["기본 클래스가 채워짐<br/>is-default-class: true 인 local-fast"]
+    Q -->|"빈 문자열 ''"| N["클래스 없음<br/>storageClassName 이 빈 정적 PV 에만 바인딩"]
+    Q -->|"이름 지정 예: local-path"| S["지정한 클래스 사용<br/>기본 여부와 무관"]
+    D --> W{"volumeBindingMode"}
+    S --> W
+    W -->|"WaitForFirstConsumer"| P1["파드가 스케줄될 때까지 Pending<br/>파드가 간 노드에 볼륨 생성"]
+    W -->|"Immediate"| P2["PVC 만들자마자 볼륨 생성"]
+```
+
+1. 기본 클래스가 쓰이는 경우는 PVC 에 `storageClassName` 필드가 **없을 때** 하나뿐입니다. 이 문제에서 기본을 `local-fast` 로 바꾸면 그 뒤로 클래스를 생략한 PVC 는 모두 `local-fast` 를 받습니다.
+2. `storageClassName: ""` 은 "생략"이 아니라 "클래스 없음"이라는 명시적인 값이라 기본 클래스가 채워지지 않습니다.
+3. 클래스가 정해진 다음에는 그 클래스의 `volumeBindingMode` 가 볼륨을 언제 만들지 정합니다. `local-fast` 는 `WaitForFirstConsumer` 라서 파드가 생기기 전까지 PVC 가 `Pending` 인 것이 정상입니다.
 
 ## 검증
 

@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `proj` contains three pods: `backend` (label `app=backend`, serves HTTP on port
+> `8080`), `frontend` (label `app=frontend`) and `other` (label `app=other`). `frontend` and
+> `other` run `busybox:1.36`. A NetworkPolicy `deny-all` already blocks all ingress traffic in the
+> namespace.
+>
+> 1. Create a NetworkPolicy `allow-frontend` in `proj` that applies to pods labelled `app=backend`.
+> 2. It must allow ingress on TCP port `8080` only from pods labelled `app=frontend` in the same
+>    namespace. Do not modify or delete `deny-all`.
+> 3. Verify that `frontend` can reach `backend` on port 8080 and that the same request from
+>    `other` times out.
+
+**해석**
+
 `proj` 네임스페이스에 파드 세 개가 있다. `backend`(라벨 `app=backend`, 포트 `8080` 에서 HTTP 서비스),
 `frontend`(라벨 `app=frontend`), `other`(라벨 `app=other`). `frontend` 와 `other` 는 `busybox:1.36` 으로
 돈다. NetworkPolicy `deny-all` 이 이미 네임스페이스의 모든 인그레스 트래픽을 막고 있다.

@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `app`, Pod `frontend` (label `app=frontend`, image `busybox:1.36`) must reach
+> Pod `backend` (label `app=backend`), which serves HTTP on TCP port `8080`. A default-deny
+> ingress NetworkPolicy already exists in `app` and currently blocks this traffic. Three
+> candidate policies are prepared in `/opt/course/f09/`: `policy-a.yaml`, `policy-b.yaml`
+> and `policy-c.yaml`.
+>
+> 1. Apply the one candidate that is the **least permissive** while still allowing
+>    `frontend` to reach `backend` on TCP port `8080`. Do not modify or delete the existing
+>    NetworkPolicies.
+> 2. Write the file name of the policy you applied (for example `policy-x.yaml`) to
+>    `/opt/course/f09/choice.txt`.
+> 3. Verify that `frontend` can now connect to `backend` on port `8080`.
+
+**해석**
+
 네임스페이스 `app` 에서 Pod `frontend`(라벨 `app=frontend`, image `busybox:1.36`)는 TCP 포트 `8080` 으로
 HTTP 를 서비스하는 Pod `backend`(라벨 `app=backend`)에 닿아야 한다. `app` 에는 기본 차단(default-deny)
 ingress NetworkPolicy 가 이미 있어 지금은 이 트래픽을 막고 있다. `/opt/course/f09/` 에 후보 정책 세 개
@@ -66,6 +83,27 @@ spec:
 kubectl apply -f /opt/course/f09/policy-b.yaml
 echo policy-b.yaml > /opt/course/f09/choice.txt
 ```
+
+### 그림 1 — 후보마다 backend 에 닿는 출발지
+
+```mermaid
+flowchart LR
+    subgraph app["namespace app"]
+        F["frontend 파드<br/>app=frontend"]
+        T["다른 파드<br/>예: 라벨 없는 tmp"]
+        B["backend 파드<br/>app=backend · :8080"]
+    end
+    subgraph other["다른 namespace"]
+        X["아무 파드"]
+    end
+    F -->|"a · b · c 모두 허용"| B
+    T -->|"a: 모든 포트<br/>c: 8080"| B
+    X -->|"c 만: 8080"| B
+```
+
+1. 세 후보 모두 `frontend → backend:8080` 은 허용하므로 문제의 필수 조건은 다 만족합니다. 차이는 그 밖에 무엇을 더 허용하느냐입니다.
+2. a 는 같은 namespace 의 모든 파드에 모든 포트를 열어 줍니다. c 는 포트를 8080 으로 좁혔지만 출발지를 클러스터 전체로 넓힙니다.
+3. b 만 출발지(`app=frontend`, 같은 namespace)와 포트(TCP 8080)를 둘 다 좁힙니다. b 의 허용 범위는 a 와 c 각각의 부분집합이므로 b 가 "least permissive" 입니다.
 
 ## 검증
 

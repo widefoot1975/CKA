@@ -10,6 +10,111 @@
 | Actual time |  |
 | Result | ☐ correct ☐ partial ☐ wrong |
 
+## Setup — 사전 환경 설정
+
+문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+
+**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+
+```bash
+# 0) 이전 실습 흔적 정리 (namespace 를 지우면 적용했던 후보 정책도 함께 지워진다)
+kubectl delete ns app --ignore-not-found --wait=true
+rm -rf /opt/course/f09
+kubectl create ns app
+
+# 1) 파드 두 개: backend 는 8080 에서 HTTP 응답, frontend 는 busybox
+kubectl -n app run backend  --image=hashicorp/http-echo:1.0 --labels=app=backend --port=8080 -- -listen=:8080 -text=backend
+kubectl -n app run frontend --image=busybox:1.36 --labels=app=frontend -- sleep 3600
+
+# 2) 이미 있는 정책 default-deny-ingress (모든 파드의 ingress 차단) — kubectl create 로는 못 만들어서 YAML
+kubectl apply -f - <<'YAML'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: app}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+YAML
+
+# 3) 후보 정책 세 개 (적용하지 않고 파일로만 둔다)
+mkdir -p /opt/course/f09
+cat > /opt/course/f09/policy-a.yaml <<'YAML'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-a
+  namespace: app
+spec:
+  podSelector:
+    matchLabels: {app: backend}
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - podSelector: {}
+YAML
+cat > /opt/course/f09/policy-b.yaml <<'YAML'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-b
+  namespace: app
+spec:
+  podSelector:
+    matchLabels: {app: backend}
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels: {app: frontend}
+    ports:
+    - {protocol: TCP, port: 8080}
+YAML
+cat > /opt/course/f09/policy-c.yaml <<'YAML'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-c
+  namespace: app
+spec:
+  podSelector:
+    matchLabels: {app: backend}
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - {protocol: TCP, port: 8080}
+YAML
+
+kubectl -n app wait pod --all --for=condition=Ready --timeout=120s
+
+# 4) 시작 상태 확인: frontend → backend 가 막혀 있어야 함 (닿으면 CNI 가 NetworkPolicy 를 지원하지 않는 것)
+kubectl -n app get pods --show-labels
+kubectl -n app get netpol
+ls /opt/course/f09
+BIP=$(kubectl -n app get pod backend -o jsonpath='{.status.podIP}')
+kubectl -n app exec frontend -- wget -qO- -T 3 http://$BIP:8080 || echo "frontend → backend 막힘 (정상)"
+```
+
+**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+```bash
+bash setup.sh      # 환경 만들기
+bash cleanup.sh    # 실습 후 정리
+```
+
+설정 직후 `app` 에는 파드 `backend`(8080 에서 `backend` 문자열 응답)와 `frontend`, NetworkPolicy `default-deny-ingress` 가 있다. `/opt/course/f09/` 에는 후보 `policy-a.yaml`·`policy-b.yaml`·`policy-c.yaml` 이 파일로만 있고 아무것도 적용되지 않았으며, `choice.txt` 는 없다.
+마지막 확인에서 frontend 의 요청이 응답을 받으면 CNI 가 NetworkPolicy 를 지원하지 않는 것이다(flannel 등). 이 문제는 Calico·Cilium 같은 CNI 에서 풀어야 의미가 있다.
+
+<details><summary>정리 명령 (방법 A)</summary>
+
+```bash
+kubectl delete ns app --ignore-not-found
+rm -rf /opt/course/f09
+```
+
+</details>
+
 ## Task
 
 In namespace `app`, Pod `frontend` (label `app=frontend`, image `busybox:1.36`) must reach

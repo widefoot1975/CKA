@@ -4,6 +4,22 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Pods in the cluster must be able to resolve the name `db.internal` to `10.0.0.50`. The
+> record must be served by the cluster DNS (CoreDNS); do not change the Pods' own
+> `/etc/hosts`.
+>
+> 1. Back up ConfigMap `coredns` in namespace `kube-system` to
+>    `/opt/course/f10/coredns-backup.yaml`.
+> 2. Add a `hosts` entry to the Corefile in that ConfigMap so that `db.internal` resolves to
+>    `10.0.0.50`, while every other name keeps resolving as before.
+> 3. Make sure CoreDNS uses the new configuration. Then verify from a temporary
+>    `busybox:1.36` Pod that `db.internal` resolves to `10.0.0.50` and that
+>    `kubernetes.default.svc.cluster.local` still resolves.
+
+**해석**
+
 클러스터의 파드들이 이름 `db.internal` 을 `10.0.0.50` 으로 해석할 수 있어야 한다. 이 레코드는 클러스터
 DNS(CoreDNS)가 제공해야 하며, 파드 자신의 `/etc/hosts` 는 바꾸지 않는다.
 
@@ -62,6 +78,28 @@ kubectl -n kube-system edit cm coredns
 kubectl -n kube-system rollout restart deploy coredns
 kubectl -n kube-system rollout status deploy coredns
 ```
+
+### 그림 1 — 질의가 CoreDNS 플러그인을 지나는 길
+
+```mermaid
+flowchart LR
+    P["임시 파드<br/>nslookup 이름"] -->|"DNS 질의<br/>kube-dns Service"| H
+    subgraph C["CoreDNS 서버 블록 .:53"]
+        H{"hosts<br/>목록에 있는 이름?"}
+        K{"kubernetes<br/>cluster.local 이름?"}
+        F["forward<br/>노드의 /etc/resolv.conf<br/>상위 DNS"]
+    end
+    H -->|"db.internal"| A1["응답 10.0.0.50"]
+    H -->|"없음 + fallthrough"| K
+    H -.->|"없음 + fallthrough 빠짐"| X["SERVFAIL<br/>다른 이름 전부 실패"]
+    K -->|"예"| A2["Service IP 응답<br/>예: 10.96.0.1"]
+    K -->|"아니오"| F
+```
+
+1. 파드의 DNS 질의는 `kube-dns` Service 를 거쳐 CoreDNS 파드로 갑니다. 플러그인은 Corefile 에 쓴 줄 순서가 아니라 빌드 때 정해진 순서로 실행되고, `hosts` 가 `kubernetes`·`forward` 보다 앞입니다.
+2. `db.internal` 은 `hosts` 목록에 있으므로 바로 `10.0.0.50` 으로 응답합니다. 뒤 플러그인까지 가지 않습니다.
+3. 목록에 없는 이름은 `fallthrough` 가 있을 때만 `kubernetes` 로 넘어갑니다. `kubernetes.default.svc.cluster.local` 은 여기서 Service IP 로 응답하고, 외부 이름은 `forward` 가 상위 DNS 에 물어봅니다.
+4. `fallthrough` 를 빼면 점선처럼 `hosts` 가 목록에 없는 모든 이름에 실패 응답을 돌려줍니다. 문제 3번의 두 번째 확인이 이 실수를 잡아내는 장치입니다.
 
 ## 검증
 
