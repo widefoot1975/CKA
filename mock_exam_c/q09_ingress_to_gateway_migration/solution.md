@@ -4,6 +4,30 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `secure` serves Deployment `portal` (3 replicas, `nginx:1.27`, port 80) through
+> Service `portal` (port 80) and Ingress `portal-ing` (IngressClass `nginx`), which
+> terminates TLS for `portal.example.com` with Secret `portal-tls`. The Ingress NGINX
+> controller has been retired, so the site must move to the Gateway API. GatewayClass
+> `nginx` is installed and `Accepted`.
+>
+> 1. From the existing Ingress, write the host, the TLS Secret, and the backend Service and
+>    port it uses to `/opt/course/q09/ingress.txt`.
+> 2. Create a Gateway `portal-gw` in `secure` with gatewayClassName `nginx` and one listener
+>    named `https`: protocol `HTTPS`, port `443`, hostname `portal.example.com`, terminating
+>    TLS with Secret `portal-tls`.
+> 3. Create an HTTPRoute `portal-route` in `secure`, attached to the `https` listener, for
+>    hostname `portal.example.com`, sending path prefix `/` to Service `portal` on port 80.
+> 4. Verify that HTTPS through the Gateway serves the page, that the presented certificate's
+>    subject is `portal.example.com`, and that the listener reports `ResolvedRefs=True` and
+>    `Programmed=True`.
+> 5. Delete the Ingress only after step 4 succeeds.
+> 6. State in one line what you would additionally need if `portal-tls` lived in namespace
+>    `certs` instead of `secure`.
+
+**해석**
+
 네임스페이스 `secure` 는 Deployment `portal`(3 레플리카, `nginx:1.27`, 포트 80)을 Service `portal`
 (포트 80)과 Ingress `portal-ing`(IngressClass `nginx`)로 서비스하고 있다. 이 Ingress는 Secret
 `portal-tls` 로 `portal.example.com` 의 TLS를 종료한다. Ingress NGINX 컨트롤러가 은퇴했으므로 이
@@ -112,6 +136,47 @@ kubectl -n secure create secret tls portal-tls --cert=tls.crt --key=tls.key
 80)를 추가하고 `RequestRedirect` 필터(`scheme: https`)를 가진 HTTPRoute를 그 listener에 붙입니다.
 이 문제는 요구하지 않습니다.
 
+### Ingress 한 장이 Gateway 와 HTTPRoute 로 나뉜다
+
+```mermaid
+flowchart LR
+    subgraph ING["Ingress portal-ing (옮기기 전)"]
+      I1["ingressClassName: nginx"]
+      I2["tls: hosts portal.example.com<br/>secretName portal-tls"]
+      I3["rules: host portal.example.com<br/>path / (Prefix)<br/>→ portal:80"]
+    end
+    subgraph GW["Gateway portal-gw · 입구"]
+      G1["gatewayClassName: nginx"]
+      G2["listener https · HTTPS · 443<br/>hostname portal.example.com<br/>tls Terminate · certificateRefs portal-tls"]
+    end
+    subgraph RT["HTTPRoute portal-route · 경로"]
+      R1["parentRefs portal-gw · sectionName https<br/>hostnames portal.example.com<br/>PathPrefix / → portal:80"]
+    end
+    I1 --> G1
+    I2 --> G2
+    I3 --> R1
+```
+
+1. `ingressClassName` 은 Gateway 의 `gatewayClassName` 이 됩니다. 어느 컨트롤러가 맡을지를 정하는 자리입니다.
+2. `tls` 블록은 Gateway **listener** 로 갑니다. HTTPS 를 받고 인증서로 TLS 를 끝내는 일은 입구의 몫이라서입니다.
+3. `rules` 는 HTTPRoute 로 갑니다. 호스트·경로·backend Service 를 그대로 옮기고, `parentRefs` 의 `sectionName` 으로 `https` listener 에 붙입니다.
+
+### HTTPS 요청이 지나가는 길
+
+```mermaid
+flowchart LR
+    C["curl https://portal.example.com<br/>(SNI = portal.example.com)"] -->|"GW 주소:443"| S["Service portal-gw-nginx<br/>(NGF 가 생성 · NodePort)"]
+    S --> N["NGINX 데이터 플레인<br/>listener https · 443<br/>TLS 종료"]
+    SEC["Secret portal-tls<br/>tls.crt · tls.key"] -. "certificateRefs" .-> N
+    N -->|"평문 HTTP<br/>HTTPRoute portal-route<br/>PathPrefix /"| SV["Service portal:80"]
+    SV --> P1["portal 파드 ×3"]
+```
+
+1. 클라이언트가 TLS 를 열 때 SNI 로 `portal.example.com` 을 보냅니다. listener 의 `hostname` 과 맞아야 이 listener 가 받습니다.
+2. NGINX 는 `certificateRefs` 의 Secret `portal-tls` 에서 `tls.crt`·`tls.key` 를 읽어 인증서를 제시하고 TLS 를 끝냅니다. curl 이 보는 subject 가 `CN=portal.example.com` 인 것은 이 Secret 때문입니다.
+3. 복호화된 요청은 `https` listener 에 붙은 `portal-route` 규칙에 따라 Service `portal` 의 80 포트로 평문 HTTP 로 갑니다.
+4. Service 가 Ready 파드 셋 중 하나로 넘깁니다. Ingress 를 지워도 이 경로에는 영향이 없으므로, 확인을 마친 뒤 지웁니다.
+
 ## 검증
 
 ```bash
@@ -131,6 +196,10 @@ GW=$(kubectl -n secure get gateway portal-gw -o jsonpath='{.status.addresses[0].
 curl -sk --resolve portal.example.com:443:$GW https://portal.example.com/ | head -3   # nginx 기본 페이지
 curl -vk --resolve portal.example.com:443:$GW https://portal.example.com/ 2>&1 | grep subject
 # subject: CN=portal.example.com
+# 주소에 닿지 않는 랩이면 NodePort 로:
+#   NP=$(kubectl -n secure get svc portal-gw-nginx -o jsonpath='{.spec.ports[?(@.port==443)].nodePort}')
+#   NODE=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+#   curl -vk --resolve portal.example.com:$NP:$NODE https://portal.example.com:$NP/ 2>&1 | grep subject
 
 kubectl -n secure delete ingress portal-ing          # 5) 새 경로가 확인된 뒤에만
 kubectl -n secure get endpointslice -l kubernetes.io/service-name=portal   # 파드 IP 3개
@@ -159,6 +228,22 @@ spec:
   - group: ""
     kind: Secret
 ```
+
+```mermaid
+flowchart LR
+    subgraph SECURE["ns secure"]
+      G["Gateway portal-gw<br/>certificateRefs:<br/>name portal-tls · namespace certs"]
+    end
+    subgraph CERTS["ns certs"]
+      RG["ReferenceGrant allow-secure-gateways<br/>from: Gateway in secure<br/>to: Secret"]
+      SE["Secret portal-tls"]
+    end
+    G -->|"① 다른 ns 의 Secret 참조"| SE
+    RG -. "② 참조를 받는 쪽이 허락" .-> SE
+```
+
+1. Gateway 가 `certificateRefs` 에 `namespace: certs` 를 적어 다른 네임스페이스의 Secret 을 가리킵니다.
+2. 이 참조는 Secret 이 있는 `certs` 쪽에 ReferenceGrant 가 있을 때만 유효합니다. 허락은 **받는 쪽**이 하므로 ReferenceGrant 는 `secure` 가 아니라 `certs` 에 만듭니다. 없으면 listener 가 `ResolvedRefs=False (RefNotPermitted)` 입니다.
 
 ## 오답 원인 / 배운 점
 

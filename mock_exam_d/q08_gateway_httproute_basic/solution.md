@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> GatewayClass `nginx` is installed and `Accepted`. Namespace `web` contains Deployment
+> `frontend` and Service `frontend` (port 80).
+>
+> 1. Create a Gateway `web-gw` in `web` with gatewayClassName `nginx` and a single listener named
+>    `http`: protocol `HTTP`, port `80`.
+> 2. Create an HTTPRoute `frontend-route` in `web`, attached to the `http` listener of `web-gw`,
+>    for hostname `shop.example.com`, that sends path prefix `/` to Service `frontend` on port 80.
+> 3. Verify that the Gateway is `Programmed`, that the route reports `Accepted=True` and
+>    `ResolvedRefs=True`, and that an HTTP request to the Gateway address with host
+>    `shop.example.com` returns the frontend page.
+
+**해석**
+
 GatewayClass `nginx` 가 설치되어 있고 `Accepted` 상태다. 네임스페이스 `web` 에 Deployment `frontend` 와
 Service `frontend`(포트 80)가 있다.
 

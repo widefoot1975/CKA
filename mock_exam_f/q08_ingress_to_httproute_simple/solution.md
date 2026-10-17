@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `blog`, Ingress `blog` publishes host `blog.example.com`: path `/` goes to
+> Service `blog` on port `80`, and path `/api` goes to Service `blog-api` on port `8080`.
+> The platform team runs Gateway `public-gw` in namespace `gateway`. Its listener `http`
+> (protocol HTTP, port 80) accepts routes from all namespaces. Service `blog` answers every
+> request with `blog-web`, Service `blog-api` answers every request with `blog-api`.
+>
+> 1. Create HTTPRoute `blog` in namespace `blog`, attached to listener `http` of Gateway
+>    `public-gw` in namespace `gateway`, with the same hostname and the same two path rules
+>    as Ingress `blog`.
+> 2. Using the address of Gateway `public-gw` and the header `Host: blog.example.com`,
+>    verify that `/` reaches `blog` and `/api` reaches `blog-api`.
+> 3. After the verification succeeds, delete Ingress `blog`.
+
+**해석**
+
 네임스페이스 `blog` 의 Ingress `blog` 는 호스트 `blog.example.com` 을 공개한다. 경로 `/` 는 Service `blog`
 포트 `80` 으로, 경로 `/api` 는 Service `blog-api` 포트 `8080` 으로 간다. 플랫폼 팀은 네임스페이스
 `gateway` 에서 Gateway `public-gw` 를 운영한다. 그 listener `http`(protocol HTTP, 포트 80)는 모든

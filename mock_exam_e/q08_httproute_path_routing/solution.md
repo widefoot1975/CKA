@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Gateway `main-gw` in namespace `infra` has a listener named `http` (HTTP, port 80) that accepts
+> routes from all namespaces. Namespace `shop` contains Service `catalog` (port 80) and Service
+> `cart` (port 8080). Both backends answer any path with a short text that contains their own name.
+>
+> 1. Create an HTTPRoute named `shop-route` in namespace `shop`, attached to listener `http` of
+>    Gateway `main-gw`, for hostname `shop.example.com`.
+> 2. Requests with path prefix `/cart` must go to Service `cart` on port `8080`; all other requests
+>    (prefix `/`) must go to Service `catalog` on port `80`.
+> 3. Confirm that the Gateway accepted the route, and test both paths with `curl` using the header
+>    `Host: shop.example.com`.
+
+**해석**
+
 `infra` 네임스페이스의 Gateway `main-gw` 에는 모든 네임스페이스의 route를 받는 listener `http`
 (HTTP, 포트 80)가 있다. `shop` 네임스페이스에는 Service `catalog`(포트 80)와 Service `cart`(포트
 8080)가 있다. 두 백엔드 모두 어떤 경로로 요청해도 자기 이름이 들어간 짧은 텍스트로 응답한다.

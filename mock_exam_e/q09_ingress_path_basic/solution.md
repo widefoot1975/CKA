@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `echo` contains Service `echo-svc`, which listens on port `8080` and returns HTTP `200`
+> for any path. An Ingress controller is installed in the cluster.
+>
+> 1. Find the name of the IngressClass that exists in the cluster.
+> 2. Create an Ingress named `echo` in namespace `echo` that uses this IngressClass and sends
+>    requests for host `example.org` with path `/echo` (path type `Prefix`) to Service `echo-svc`
+>    on port `8080`.
+> 3. Using `curl` against the Ingress controller with the header `Host: example.org`, confirm that
+>    path `/echo` returns HTTP `200`.
+
+**해석**
+
 `echo` 네임스페이스에는 포트 `8080` 에서 대기하며 어떤 경로든 HTTP `200` 을 돌려주는 Service
 `echo-svc` 가 있다. 클러스터에는 Ingress 컨트롤러가 설치되어 있다.
 
