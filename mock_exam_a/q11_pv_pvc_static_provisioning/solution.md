@@ -4,6 +4,24 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> This cluster has no dynamic provisioner, so the volume must be prepared by hand.
+>
+> 1. On `worker01`, create the directory `/mnt/data/logs`.
+> 2. Create a PersistentVolume `pv-logs`: 2Gi, `ReadWriteOnce`, `storageClassName: manual`,
+>    reclaim policy `Retain`, backed by `hostPath` `/mnt/data/logs`, and pinned to node
+>    `worker01` with node affinity so that every pod using it runs there.
+> 3. In namespace `ops`, create a PersistentVolumeClaim `pvc-logs` requesting 1Gi
+>    `ReadWriteOnce` from storage class `manual`, and confirm it binds to `pv-logs`.
+> 4. Create a Pod `logger` in `ops` running `busybox:1.36` with command
+>    `sh -c 'while true; do date >> /data/out.log; sleep 5; done'`, mounting the claim at
+>    `/data`. Show the file being written on the node.
+> 5. Create a second claim `pvc-logs-2` in `ops` requesting 3Gi from `manual`, and state in
+>    one line why it stays `Pending`.
+
+**해석**
+
 이 클러스터에는 동적 프로비저너가 없어 볼륨을 손으로 준비해야 한다.
 
 1. `worker01` 에 디렉터리 `/mnt/data/logs` 를 만든다.
@@ -61,6 +79,22 @@ spec:
     persistentVolumeClaim: { claimName: pvc-logs }
 ```
 
+### 그림 — PVC 바인딩과 노드 고정
+
+```mermaid
+flowchart LR
+    P["Pod logger (ops)<br/>claimName pvc-logs<br/>mountPath /data"] --> C1["PVC pvc-logs<br/>manual · 1Gi · RWO"]
+    C1 -->|"Bound<br/>class 일치 · RWO 포함 · 2Gi ≥ 1Gi"| V["PV pv-logs<br/>manual · 2Gi · RWO · Retain<br/>nodeAffinity worker01"]
+    C2["PVC pvc-logs-2<br/>manual · 3Gi"] -. "Pending<br/>3Gi 이상 PV 없음" .-> V
+    V --> N["worker01<br/>/mnt/data/logs/out.log"]
+    V -. "nodeAffinity" .-> S["스케줄러: logger 를<br/>worker01 에만 배치"]
+```
+
+1. 파드는 PV를 직접 모르고 PVC 이름(`claimName pvc-logs`)만 적습니다.
+2. `pvc-logs` 는 class `manual` 이 같고, 요청한 `RWO` 가 PV의 모드에 들어 있고, PV 2Gi가 요청 1Gi 이상이라 `pv-logs` 와 `Bound` 가 됩니다. 바인딩되면 2Gi 전체를 차지합니다.
+3. `pvc-logs-2` 는 3Gi를 원하지만 `manual` 에 그만한 PV가 없고, `pv-logs` 는 이미 바인딩되어 있어 `Pending` 에 머뭅니다.
+4. PV의 `nodeAffinity` 를 보고 스케줄러가 `logger` 를 worker01 에 놓으므로, 컨테이너의 `/data/out.log` 가 worker01 의 `/mnt/data/logs/out.log` 로 쌓입니다.
+
 **바인딩에는 세 조건이 동시에 맞아야 합니다.**
 
 | 조건 | 기준 |
@@ -69,7 +103,9 @@ spec:
 | `storageClassName` | 두 값이 **문자열로 정확히 일치**해야 한다 |
 | 용량 | PV의 `capacity` ≥ PVC의 `requests.storage` |
 
-용량은 같지 않아도 되고 PV가 크면 됩니다. 다만 바인딩되면 PVC는 PV 전체를 차지합니다 — 2Gi PV에 1Gi를 요청해 바인딩하면 남은 1Gi를 다른 클레임이 쓸 수 없습니다. 그래서 `pvc-logs-2` 는 3Gi를 만족하는 PV가 없어 `Pending` 입니다. `manual` 클래스에는 프로비저너가 없으니 동적으로 만들어지지도 않습니다.
+용량은 같지 않아도 되고 PV가 크면 됩니다. 다만 바인딩되면 PVC는 PV 전체를 차지합니다 — 2Gi PV에 1Gi를 요청해 바인딩하면 남은 1Gi를 다른 클레임이 쓸 수 없습니다. 그래서 `pvc-logs-2` 는 3Gi를 만족하는 PV가 없어 `Pending` 입니다. 용량이 맞았더라도 `pv-logs` 는 이미 `pvc-logs` 에 `Bound` 라 다른 PVC와 바인딩되지 않습니다(PV와 PVC는 1:1). 그리고 `manual` 이라는 StorageClass 객체가 없으니 동적으로 만들어지지도 않습니다.
+
+5번 한 줄 답: **`manual` 클래스에 3Gi 이상인 `Available` PV가 없고(`pv-logs` 는 2Gi이며 이미 `pvc-logs` 에 바인딩됨), `manual` 은 프로비저너가 없어 새 PV를 만들어 주지도 않기 때문이다.**
 
 **`storageClassName` 을 생략하는 것과 `""` 로 두는 것은 다릅니다.** 필드를 아예 쓰지 않으면 클러스터의 **기본 StorageClass**가 적용되고, 기본 클래스가 있으면 동적 프로비저닝이 일어나 방금 만든 `pv-logs` 를 무시한 새 볼륨이 생깁니다. `storageClassName: ""` 는 "클래스를 쓰지 않겠다"는 명시적 선언이라 클래스가 없는 PV에만 바인딩됩니다. 정적 프로비저닝 문제에서 클래스 이름을 맞추거나 양쪽 모두 `""` 로 두는 것이 핵심입니다.
 
@@ -91,7 +127,8 @@ kubectl -n ops get pvc
 # pvc-logs-2  Pending                         manual
 
 kubectl -n ops describe pvc pvc-logs-2 | tail -5
-# Events: ... no persistent volumes available for this claim
+# Events: Warning  ProvisioningFailed  ...  storageclass.storage.k8s.io "manual" not found
+# (맞는 PV가 없어 동적 프로비저닝을 시도했지만 manual 이라는 StorageClass 객체가 없다는 뜻)
 
 kubectl -n ops exec logger -- tail -3 /data/out.log
 kubectl -n ops get pod logger -o wide           # NODE 가 worker01 이어야 한다
