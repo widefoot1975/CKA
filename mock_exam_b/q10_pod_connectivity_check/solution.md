@@ -4,6 +4,24 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> A team claims pods in one namespace cannot talk to a service in another. Prove or
+> disprove it.
+>
+> 1. In namespace `alpha`, create deployment `alpha-web` (`nginx:1.27`, 2 replicas) and
+>    expose it as a ClusterIP service `alpha-web` on port `80`.
+> 2. In namespace `beta`, create a long-running pod named `probe` using image
+>    `busybox:1.36` that does not restart.
+> 3. From `probe`, resolve `alpha-web` using its **short name** and then its FQDN. Write
+>    both results and the resolved ClusterIP to `/opt/q10/dns.txt`.
+> 4. Write the pod IPs currently backing the service, read from the EndpointSlice, to
+>    `/opt/q10/endpoints.txt`, then show an HTTP request from `probe` actually succeeding.
+> 5. Write to `/opt/q10/triage.txt` the one decisive command for each of the three layers
+>    that can break this: DNS, Service/EndpointSlice, NetworkPolicy.
+
+**해석**
+
 한 팀이 자기 네임스페이스의 파드가 다른 네임스페이스의 서비스에 못 닿는다고 주장한다. 사실인지
 확인한다.
 
@@ -22,6 +40,7 @@
 ```bash
 kubectl create namespace alpha
 kubectl create namespace beta
+mkdir -p /opt/q10                     # 답안 디렉터리 (없을 때를 대비)
 kubectl -n alpha create deploy alpha-web --image=nginx:1.27 --replicas=2
 kubectl -n alpha expose deploy alpha-web --port=80
 kubectl -n beta run probe --image=busybox:1.36 --restart=Never --command -- sleep 86400
@@ -53,6 +72,21 @@ kubectl -n beta exec probe -- nslookup alpha-web.alpha.svc.cluster.local
 `nslookup` 은 점이 든 이름에 search 를 붙이지 않기 때문입니다. `wget http://alpha-web.alpha` 는 libc 리졸버가
 search 를 적용하므로 됩니다. busybox 의 `nslookup` 으로는 FQDN 이나 점 없는 이름만 조회합니다.
 
+답안 파일에는 두 조회 결과와 ClusterIP 를 함께 남깁니다. 짧은 이름 조회는 실패하므로 종료 코드가 1 이고 에러가 stderr 로 나오니 `2>&1` 로 같이 담습니다.
+
+```bash
+{
+  echo "### short name: alpha-web"
+  kubectl -n beta exec probe -- nslookup alpha-web 2>&1
+  echo "### FQDN: alpha-web.alpha.svc.cluster.local"
+  kubectl -n beta exec probe -- nslookup alpha-web.alpha.svc.cluster.local 2>&1
+  echo "### ClusterIP: $(kubectl -n alpha get svc alpha-web -o jsonpath='{.spec.clusterIP}')"
+} > /opt/q10/dns.txt
+cat /opt/q10/dns.txt
+```
+
+해석된 주소가 `kubectl -n alpha get svc alpha-web` 의 `CLUSTER-IP` 와 같은지 눈으로 확인합니다.
+
 ```bash
 kubectl -n beta exec probe -- cat /etc/resolv.conf
 # search beta.svc.cluster.local svc.cluster.local cluster.local
@@ -64,25 +98,68 @@ kubectl -n beta exec probe -- cat /etc/resolv.conf
 
 ```bash
 kubectl -n alpha get endpointslice -l kubernetes.io/service-name=alpha-web \
-  -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}'
+  -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}' \
+  | tee /opt/q10/endpoints.txt
 # 10.244.1.17
 # 10.244.2.23
 
-kubectl -n beta exec probe -- wget -qO- --timeout=3 http://alpha-web.alpha/ | head -3
+kubectl -n alpha get pod -l app=alpha-web -o wide    # 같은 IP 두 개인지 대조
+
+kubectl -n beta exec probe -- wget -qO- --timeout=3 http://alpha-web.alpha/ | head -4
+# <!DOCTYPE html>
+# <html>
+# <head>
+# <title>Welcome to nginx!</title>
 ```
+
+`kubectl create deploy` 는 파드에 `app=alpha-web` 라벨을 붙이고, `kubectl expose` 는 그 라벨을 Service 의 selector 로 씁니다. 그래서 EndpointSlice 의 IP 와 `-l app=alpha-web` 파드 IP 가 같아야 합니다.
 
 **5) 3계층 triage.** 증상이 같아도 원인 계층이 다르므로 순서대로 하나씩 끊어 봅니다.
 
-```
+```bash
+cat > /opt/q10/triage.txt <<'EOF'
 DNS:              kubectl -n beta exec probe -- nslookup alpha-web.alpha.svc.cluster.local
 Service/EPSlice:  kubectl -n alpha get endpointslice -l kubernetes.io/service-name=alpha-web
-NetworkPolicy:    kubectl -n alpha get netpol -o yaml   (+ kubectl -n beta get netpol)
+NetworkPolicy:    kubectl get netpol -n alpha -o yaml ; kubectl get netpol -n beta -o yaml
+EOF
 ```
+
+`<<'EOF'` 처럼 따옴표를 붙이면 셸이 안의 내용을 해석하지 않고 글자 그대로 씁니다.
 
 ClusterIP로는 붙는데 이름으로 안 붙으면 DNS, 이름은 해석되는데 연결이 안 되고
 EndpointSlice가 비어 있으면 selector/포트 불일치, EndpointSlice에 IP가 있는데도 timeout이면
 NetworkPolicy입니다. NetworkPolicy는 **양쪽** 네임스페이스를 봐야 합니다 — 목적지의 ingress
 정책과 출발지의 egress 정책이 모두 막을 수 있습니다.
+
+### 그림 1 — `probe` 에서 nginx 까지 요청이 거치는 세 계층
+
+```mermaid
+flowchart LR
+    subgraph beta["namespace beta"]
+        P["probe<br/>busybox:1.36"]
+    end
+    subgraph ks["namespace kube-system"]
+        DNS["CoreDNS<br/>10.96.0.10:53"]
+    end
+    subgraph alpha["namespace alpha"]
+        SVC["Service alpha-web<br/>ClusterIP 10.96.84.12:80"]
+        EPS["EndpointSlice<br/>alpha-web-xxxxx"]
+        W1["alpha-web 파드 1<br/>10.244.1.17:80"]
+        W2["alpha-web 파드 2<br/>10.244.2.23:80"]
+    end
+    P -->|"① DNS<br/>alpha-web.alpha.svc.cluster.local ?"| DNS
+    DNS -->|"10.96.84.12"| P
+    P -->|"② HTTP → ClusterIP:80"| SVC
+    SVC -.->|"selector app=alpha-web"| EPS
+    EPS -.-> W1
+    EPS -.-> W2
+    SVC -->|"③ kube-proxy 가 파드 IP 로 바꿔 전달<br/>NetworkPolicy 검사"| W1
+```
+
+1. **① DNS** — `probe` 는 `/etc/resolv.conf` 의 `nameserver`(CoreDNS)에 이름을 묻습니다. search 목록이 `beta.svc.cluster.local` 로 시작하므로 짧은 이름 `alpha-web` 은 `alpha-web.beta.svc.cluster.local` 로 바뀌어 NXDOMAIN 이 됩니다. FQDN 으로 물어야 ClusterIP 를 받습니다.
+2. **② Service** — 받은 ClusterIP 로 HTTP 를 보냅니다. ClusterIP 는 실제 파드가 아니라 가상 IP 이고, 뒤에 어떤 파드가 있는지는 Service 의 selector 로 만들어진 EndpointSlice 가 정합니다. EndpointSlice 가 비어 있으면 이름은 해석되는데 연결이 거부되거나 타임아웃됩니다.
+3. **③ 파드로 전달** — 노드의 kube-proxy 가 ClusterIP 를 EndpointSlice 의 파드 IP 중 하나로 바꿔 보냅니다. 이때 `alpha` 의 ingress 정책이나 `beta` 의 egress 정책이 막고 있으면 타임아웃이 납니다.
+4. 그래서 진단은 ① → ② → ③ 순서로 한 계층씩 끊어 봅니다. 5번의 `triage.txt` 가 각 계층을 확인하는 명령 하나씩입니다.
 
 ## 검증
 
