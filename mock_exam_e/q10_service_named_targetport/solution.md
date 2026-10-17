@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Deployment `backend` in namespace `api` runs `nginx:1.27` in a container named `nginx`, which
+> listens on port 80. The container spec does not declare any ports yet.
+>
+> 1. Add a container port `80` named `http` (protocol `TCP`) to container `nginx` of Deployment
+>    `backend`.
+> 2. Create a ClusterIP Service named `backend` in namespace `api` that listens on port `8080` and
+>    targets the container port **by its name** `http`.
+> 3. Confirm that the Service's EndpointSlice resolves the target to port `80`, and that
+>    `http://backend.api:8080` returns the nginx welcome page from a temporary `busybox:1.36` pod.
+
+**해석**
+
 `api` 네임스페이스의 Deployment `backend` 는 이름이 `nginx` 인 컨테이너에서 `nginx:1.27` 을 실행하고,
 이 컨테이너는 포트 80에서 대기한다. 컨테이너 spec에는 아직 포트가 하나도 선언되어 있지 않다.
 
@@ -52,6 +66,24 @@ EndpointSlice 컨트롤러가 각 파드의 `ports[].name` 을 보고 채웁니�
 각자 맞는 번호로 연결됩니다. 대신 **파드 spec에 그 이름이 선언되어 있어야** 합니다 — 1단계가 필요한
 이유입니다. 숫자 `targetPort` 는 `containerPort` 선언이 없어도 동작하지만, 이름은 선언이 없으면 해석할
 수 없습니다.
+
+### 그림 — 포트 이름 http 가 번호 80 으로 풀리는 과정
+
+```mermaid
+flowchart LR
+    T["임시 파드 tmp<br/>wget backend.api:8080"]
+    SVC["Service backend<br/>port 8080<br/>targetPort: http (이름)"]
+    ES["EndpointSlice<br/>컨트롤러가 이름을 번호로 풀어 기록<br/>port 80 · 파드 IP"]
+    P["backend 파드 · 컨테이너 nginx<br/>ports: name http · containerPort 80"]
+    T -->|"① DNS → ClusterIP:8080"| SVC
+    SVC -->|"② 파드 spec 에서<br/>이름 http 를 찾음"| ES
+    P -.->|"이름과 번호 제공"| ES
+    ES -->|"③ 파드IP:80 으로 전달"| P
+```
+
+1. 클라이언트는 Service 포트 8080 으로 접속합니다. Service 는 `targetPort` 로 숫자가 아니라 이름 `http` 만 갖고 있습니다.
+2. EndpointSlice 컨트롤러가 셀렉터에 맞는 각 파드의 `ports[].name` 을 보고 `http` 가 80 이라는 것을 찾아 EndpointSlice 의 PORTS 칸에 80 을 씁니다. 파드에 이름 선언이 없으면 여기서 풀리지 않아 엔드포인트가 비게 됩니다.
+3. kube-proxy 는 EndpointSlice 에 적힌 대로 `파드IP:80` 으로 보냅니다. 그래서 검증 출력의 PORTS 가 8080 이 아니라 80 입니다.
 
 ## 검증
 

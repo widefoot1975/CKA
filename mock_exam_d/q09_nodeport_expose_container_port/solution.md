@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `spline` contains Deployment `front-end` (image `nginx:1.27`, container name `nginx`).
+> Its pod template does not declare any container ports.
+>
+> 1. Update the Deployment so that container `nginx` declares containerPort `80`, named `http`,
+>    protocol `TCP`.
+> 2. Create a Service `front-end-svc` of type `NodePort` in `spline` that selects the `front-end`
+>    pods and maps port `80` to targetPort `80`, using the fixed nodePort `30080`.
+> 3. Verify that the Service has endpoints and that `http://<node IP>:30080` returns the nginx
+>    welcome page.
+
+**해석**
+
 `spline` 네임스페이스에 Deployment `front-end`(image `nginx:1.27`, 컨테이너 이름 `nginx`)가 있다. 파드
 템플릿에는 컨테이너 포트가 하나도 선언되어 있지 않다.
 
@@ -65,6 +79,29 @@ spec:
 `kubectl create service nodeport front-end-svc --tcp=80:80 --node-port=30080` 도 되지만, 이 명령은 selector를
 `app=front-end-svc`(Service 이름)로 만들어 파드를 못 찾습니다. 쓴다면 이어서
 `kubectl -n spline set selector svc front-end-svc app=front-end` 로 고칩니다.
+
+### 그림 — NodePort 요청이 파드까지 가는 길
+
+```mermaid
+flowchart LR
+    C["클라이언트<br/>curl http://노드IP:30080"]
+    subgraph N["아무 노드 (worker01, worker02 ...)"]
+        KP["kube-proxy 규칙<br/>nodePort 30080"]
+    end
+    SVC["Service front-end-svc<br/>ClusterIP:80<br/>selector app=front-end"]
+    subgraph PODS["front-end 파드들"]
+        P1["nginx<br/>containerPort 80 · http"]
+        P2["nginx<br/>containerPort 80 · http"]
+    end
+    C -->|"① 노드IP:30080"| KP
+    KP -->|"② Service port 80 으로"| SVC
+    SVC -->|"③ targetPort 80<br/>EndpointSlice 의 파드 IP 중 하나"| P1
+    SVC -.-> P2
+```
+
+1. NodePort 는 **모든 노드**에 같은 포트(30080)를 엽니다. 파드가 없는 노드로 보내도 kube-proxy 규칙이 받아 줍니다.
+2. 들어온 요청은 Service 의 `port: 80` 으로 이어집니다. 클러스터 안에서는 `front-end-svc.spline:80` 으로도 같은 Service 에 닿습니다.
+3. Service 는 selector `app=front-end` 로 고른 파드의 IP 목록(EndpointSlice) 중 하나로 `targetPort: 80` 을 붙여 보냅니다. 세 숫자 30080 → 80 → 80 이 각각 노드, Service, 컨테이너의 포트라는 것을 구분해 두면 `port`·`targetPort`·`nodePort` 를 헷갈리지 않습니다.
 
 ## 검증
 

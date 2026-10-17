@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `shop` needs the same set of pods reachable four different ways.
+>
+> 1. Create a Deployment `api` in `shop` with 3 replicas of `nginx:1.27`, container port 80.
+> 2. Create a ClusterIP Service `api-clusterip` on port 8080 forwarding to container port 80.
+> 3. Create a NodePort Service `api-nodeport`, service port 8080, target port 80, fixed node
+>    port 31080.
+> 4. Create a headless Service `api-headless` for the same pods on port 8080.
+> 5. Create a LoadBalancer Service `api-lb` on port 80 and record its `EXTERNAL-IP`.
+> 6. List the three backing pod IPs of `api-clusterip`, once through its Endpoints and once
+>    through its EndpointSlice.
+> 7. Reach `api-clusterip` from a temporary pod and `api-nodeport` from a node, and state in
+>    one line what `EXTERNAL-IP` shows for `api-lb` and why.
+
+**해석**
+
 `shop` 네임스페이스의 같은 파드 집합을 네 가지 방식으로 접근할 수 있게 만들어야 한다.
 
 1. `shop` 에 `nginx:1.27` 3 레플리카, 컨테이너 포트 80인 Deployment `api` 를 만든다.
@@ -74,6 +91,38 @@ NodePort 확인은 **노드 IP**로 합니다. `localhost:<nodePort>` 는 kube-p
 1.33에 GA가 된 nftables 모드는 기본적으로 localhost NodePort를 지원하지 않습니다.
 
 **LoadBalancer의 `EXTERNAL-IP` 는 `<pending>` 으로 남습니다.** LoadBalancer 타입은 클라우드 컨트롤러 매니저(또는 MetalLB 같은 온프레미스 구현)가 외부 LB를 만들어 주소를 채워 넣어야 완성됩니다. kubeadm으로 올린 베어메탈 클러스터에는 그 구현체가 없으니 아무도 채워 주지 않습니다. 다만 LoadBalancer는 NodePort를 포함하므로 노드 포트로는 접근됩니다.
+
+### 그림 — 같은 파드를 가리키는 네 Service
+
+```mermaid
+flowchart LR
+    TMP["임시 파드<br/>api-clusterip:8080"]
+    NODE["노드 IP:31080"]
+    EXT["외부 클라이언트<br/>EXTERNAL-IP:80"]
+    DNS["nslookup api-headless"]
+    subgraph shop["namespace shop"]
+        CIP["api-clusterip<br/>ClusterIP · 8080 → 80"]
+        NP["api-nodeport<br/>NodePort · 31080 → 8080 → 80"]
+        LB["api-lb<br/>LoadBalancer · 80 → 80<br/>EXTERNAL-IP pending"]
+        HL["api-headless<br/>clusterIP: None"]
+        ES["EndpointSlice<br/>파드 IP 3개 :80"]
+        P["api 파드 ×3<br/>app=api · nginx :80"]
+    end
+    TMP --> CIP
+    NODE --> NP
+    EXT -.-x|"LB 구현체 없음<br/>주소가 채워지지 않음"| LB
+    DNS -->|"A 레코드 = 파드 IP 3개<br/>kube-proxy 거치지 않음"| HL
+    CIP --> ES
+    NP --> ES
+    LB --> ES
+    ES --> P
+    HL -.-> P
+```
+
+1. 네 Service 모두 셀렉터 `app=api` 로 같은 파드 세 개를 고릅니다. 셀렉터가 같으니 EndpointSlice 에 들어가는 파드 IP 도 같습니다(6단계에서 확인하는 목록).
+2. ClusterIP 는 클러스터 안에서만 닿는 가상 IP 입니다. NodePort 는 그 위에 모든 노드의 31080 을 더 열고, LoadBalancer 는 다시 그 위에 외부 LB 주소를 더 붙이는 계층 구조입니다. 그래서 `api-lb` 도 자동으로 노드 포트(3xxxx)를 하나 받습니다.
+3. kubeadm 베어메탈 클러스터에는 외부 LB 를 만들어 줄 컨트롤러가 없어서 `api-lb` 의 EXTERNAL-IP 는 `<pending>` 으로 남습니다. 7단계에서 한 줄로 답할 내용이 이것입니다.
+4. headless 는 가상 IP 가 없어 kube-proxy 를 거치지 않습니다. DNS 가 서비스 이름을 파드 IP 목록으로 바로 돌려주고, 클라이언트가 그중 하나에 직접 붙습니다.
 
 ## 검증
 

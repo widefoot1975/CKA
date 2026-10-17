@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `cfg` exists. An application needs one setting as an environment variable and all
+> settings as files.
+>
+> 1. Create ConfigMap `app-settings` in `cfg` with the keys `MODE=prod` and `COLOR=blue`.
+> 2. Create pod `settings-demo` in `cfg` (image `busybox:1.36`, command `sleep 3600`) that
+>    - receives the value of key `MODE` as environment variable `APP_MODE`, and
+>    - mounts the whole ConfigMap as a volume at `/etc/settings`.
+> 3. Verify inside the pod that `APP_MODE` is `prod` and that the file `/etc/settings/COLOR`
+>    contains `blue`.
+
+**해석**
+
 `cfg` 네임스페이스가 있다. 애플리케이션은 설정 하나는 환경 변수로, 전체 설정은 파일로 받아야 한다.
 
 1. `cfg` 에 키 `MODE=prod`, `COLOR=blue` 를 가진 ConfigMap `app-settings` 를 만든다.
@@ -59,6 +73,29 @@ spec:
 키 전체를 환경 변수로 넣고 싶으면 `envFrom: [{configMapRef: {name: app-settings}}]` 를 씁니다. 이때
 변수 이름은 키 이름(`MODE`, `COLOR`) 그대로이고 `prefix` 로 접두어만 붙일 수 있습니다. 이 문제처럼 키
 하나만 `APP_MODE` 라는 다른 이름으로 받으려면 `configMapKeyRef` 입니다.
+
+### 그림 — ConfigMap 키가 파드 안으로 들어가는 두 경로
+
+```mermaid
+flowchart LR
+    subgraph CM["ConfigMap app-settings"]
+        K1["MODE = prod"]
+        K2["COLOR = blue"]
+    end
+    subgraph POD["파드 settings-demo"]
+        E["환경 변수<br/>APP_MODE=prod"]
+        subgraph V["볼륨 마운트 /etc/settings"]
+            F1["파일 MODE<br/>내용: prod"]
+            F2["파일 COLOR<br/>내용: blue"]
+        end
+    end
+    K1 -->|"env.valueFrom<br/>configMapKeyRef key: MODE<br/>컨테이너 시작 때 한 번"| E
+    CM -->|"volumes.configMap<br/>키 하나 = 파일 하나<br/>kubelet 이 주기적으로 갱신"| V
+```
+
+1. `configMapKeyRef` 는 키 **하나**를 골라 원하는 변수 이름(`APP_MODE`)으로 넣습니다. 값은 컨테이너가 시작될 때 복사되므로 나중에 ConfigMap 을 바꿔도 파드를 다시 만들기 전에는 그대로입니다.
+2. `configMap` 볼륨은 ConfigMap **전체**를 디렉터리로 투영합니다. 키 이름이 파일 이름, 값이 파일 내용이 됩니다. 그래서 `/etc/settings/COLOR` 에 `blue` 가 들어 있습니다.
+3. 볼륨 쪽은 kubelet 이 주기적으로 다시 맞추므로 ConfigMap 을 고치면 잠시 뒤 파일 내용이 바뀝니다(`subPath` 마운트는 예외).
 
 ## 검증
 
