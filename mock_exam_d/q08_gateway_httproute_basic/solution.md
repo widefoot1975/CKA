@@ -79,6 +79,30 @@ flowchart LR
 
 GatewayClass 와 컨트롤러는 요청 경로에 끼지 않습니다. Gateway·HTTPRoute 리소스를 읽어 NGINX 설정을 만들어 줄 뿐입니다.
 
+### 리소스가 서로를 가리키는 방식
+
+```mermaid
+flowchart RL
+    R["HTTPRoute frontend-route<br/>(ns web)<br/>hostnames: shop.example.com"]
+    GW["Gateway web-gw (ns web)<br/>listener http · HTTP · 80<br/>allowedRoutes: Same (기본값)"]
+    GC["GatewayClass nginx<br/>(전제 · Accepted)"]
+    SV["Service frontend<br/>port 80"]
+    R -->|"② parentRefs<br/>name: web-gw · sectionName: http"| GW
+    GW -->|"① gatewayClassName: nginx"| GC
+    R -->|"③ backendRefs<br/>name: frontend · port: 80"| SV
+```
+
+1. Gateway 는 `gatewayClassName` 으로 GatewayClass 를 가리킵니다. 이름이 틀리면 어떤 컨트롤러도 Gateway 를 맡지 않아
+   `Programmed` 가 되지 않습니다.
+2. HTTPRoute 는 `parentRefs` 로 Gateway 와 그 안의 listener 를 가리킵니다. 이름이나 `sectionName` 이 틀리면
+   `NoMatchingParent`, route 가 다른 네임스페이스에 있으면 listener 기본값 `Same` 에 걸려 `NotAllowedByListeners` 입니다.
+   둘 다 `Accepted=False` 로 나타납니다.
+3. HTTPRoute 는 `backendRefs` 로 Service 와 그 Service 의 `port` 를 가리킵니다. 여기가 틀리면 `ResolvedRefs=False` 입니다.
+
+참조는 아래에서 위로만 갑니다. HTTPRoute 가 Gateway 를, Gateway 가 GatewayClass 를 가리키고 반대 방향 필드는 없습니다.
+Gateway 의 `status.listeners[].attachedRoutes` 에는 붙은 route 개수만 나오므로, route 가 왜 안 붙었는지는 route 의
+`status.parents[].conditions` 에서 확인합니다.
+
 | route 상태 (reason) | 흔한 원인 |
 |---|---|
 | `Accepted=False`, `NoMatchingParent` | `parentRefs` 의 Gateway 이름이나 `sectionName` 오타 |

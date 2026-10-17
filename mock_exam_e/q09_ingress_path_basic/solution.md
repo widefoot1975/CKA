@@ -80,6 +80,27 @@ flowchart LR
    8080으로 가고, Host 가 다르거나 `/echoes` 처럼 경로 요소가 다르면 404를 직접 돌려줍니다.
 4. Service `echo-svc` 가 `targetPort` 5678 의 파드로 요청을 넘기고, 응답(200, `echo`)이 같은 길로 돌아옵니다. 경로는 바뀌지 않고 그대로 전달됩니다.
 
+### 어느 컨트롤러가 이 Ingress 를 맡는가
+
+```mermaid
+flowchart TD
+    I["Ingress echo"] --> Q{"ingressClassName<br/>값이 있나?"}
+    Q -->|"nginx<br/>(get ingressclass 로 확인한 이름)"| M["IngressClass nginx<br/>controller: nginx.org/ingress-controller"]
+    Q -->|"있지만 없는 클래스 이름"| X["아무 컨트롤러도 맡지 않음<br/>ADDRESS 비어 있음 · curl 실패"]
+    Q -->|"없음"| D{"기본 IngressClass<br/>(is-default-class: true)<br/>가 있나?"}
+    D -->|"있음"| M2["생성할 때 그 클래스 이름이<br/>자동으로 채워짐"]
+    D -->|"없음"| X
+    M --> C["NGINX Ingress Controller 가<br/>NGINX 설정을 만들고 ADDRESS 를 채움"]
+    M2 --> C
+```
+
+1. Ingress 컨트롤러는 자기 IngressClass 를 가리키는 Ingress 만 읽습니다. 그래서 1)에서 클래스 이름을 먼저 확인하고
+   `--class`(`ingressClassName`)에 그대로 넣습니다.
+2. 클래스 이름을 틀리게 쓰면 API 서버는 Ingress 를 그대로 받아 줍니다. 에러는 없지만 어떤 컨트롤러도 처리하지 않아
+   ADDRESS 가 비어 있고 요청이 닿지 않습니다.
+3. `ingressClassName` 을 빼면 기본 IngressClass 가 있을 때만 생성 시점에 그 이름이 채워집니다. 없으면 2와 같은 상태가 됩니다.
+   `kubectl -n echo get ingress echo` 의 CLASS 열과 ADDRESS 열로 바로 확인할 수 있습니다.
+
 ## 검증
 
 ```bash

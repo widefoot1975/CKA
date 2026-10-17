@@ -85,6 +85,33 @@ flowchart LR
    Service `cart` 포트 8080으로, 그 밖의 경로는 Service `catalog` 포트 80으로 갑니다. Host 가 다르면 404를 직접 돌려줍니다.
 4. 각 Service 가 `targetPort` 5678 의 파드로 요청을 넘기고, 응답이 같은 길로 돌아옵니다. 경로는 바뀌지 않고 그대로 전달됩니다.
 
+### 네임스페이스를 넘는 참조
+
+```mermaid
+flowchart LR
+    subgraph shop["namespace shop"]
+        R["HTTPRoute shop-route"]
+        CA["Service cart:8080"]
+        CT["Service catalog:80"]
+        NG["Gateway main-gw?<br/>(이 네임스페이스엔 없음)"]
+    end
+    subgraph infra["namespace infra"]
+        GW["Gateway main-gw<br/>listener http<br/>allowedRoutes: All"]
+    end
+    R -->|"parentRefs<br/>name: main-gw · namespace: infra"| GW
+    R -.-x|"namespace 를 빼면<br/>shop 에서 찾음 → 붙지 않음"| NG
+    R -->|"backendRefs (같은 ns)<br/>ReferenceGrant 불필요"| CA
+    R -->|"backendRefs (같은 ns)"| CT
+```
+
+1. route 는 `shop` 에, Gateway 는 `infra` 에 있습니다. `parentRefs[].namespace: infra` 가 있어야 Gateway 를 찾습니다.
+2. `namespace` 를 빼면 route 자신의 네임스페이스 `shop` 에서 `main-gw` 를 찾습니다. 그런 Gateway 는 없으므로 route 는
+   어디에도 붙지 않고 트래픽도 오지 않습니다.
+3. Gateway 쪽에서 다른 네임스페이스의 route 를 받아 주는 것은 listener 의 `allowedRoutes.namespaces.from: All` 입니다.
+   route 와 Gateway 양쪽이 서로를 허락해야 붙습니다.
+4. backend Service 두 개는 route 와 같은 `shop` 에 있으므로 ReferenceGrant 가 필요 없습니다. Service 가 다른
+   네임스페이스에 있을 때만 그쪽에 ReferenceGrant 를 만듭니다.
+
 ## 검증
 
 ```bash

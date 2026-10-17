@@ -97,6 +97,27 @@ flowchart LR
 4. 각 Service 가 `targetPort` 5678 의 파드로 요청을 넘기고 `blog-web` / `blog-api` 응답이 같은 길로 돌아옵니다.
    Ingress `blog` 는 트래픽 경로에 없고 규칙을 읽어 오는 원본일 뿐이라, HTTPRoute 확인이 끝난 뒤 지워도 응답은 그대로입니다.
 
+### 옮기는 동안 입구가 두 개다
+
+```mermaid
+flowchart LR
+    C["curl<br/>Host: blog.example.com"]
+    IC["Ingress 컨트롤러<br/>(IngressClass nginx)"]
+    GW["Gateway public-gw<br/>(ns gateway) · listener http"]
+    SV["Service blog:80<br/>Service blog-api:8080<br/>(ns blog)"]
+    C -->|"Ingress 컨트롤러 주소"| IC
+    C -->|"② Gateway 주소로 확인"| GW
+    IC -.->|"Ingress blog<br/>③ 확인 후 삭제"| SV
+    GW -->|"HTTPRoute blog<br/>① 새로 만듦"| SV
+```
+
+1. ① HTTPRoute 를 만들면 같은 Service 두 개로 가는 입구가 하나 더 생깁니다. 기존 Ingress 와 주소가 달라서 둘은 서로 부딪히지
+   않고, 이 사이에도 기존 사용자는 Ingress 쪽으로 계속 들어옵니다.
+2. ② 확인은 반드시 **Gateway 주소**로 합니다. Ingress 컨트롤러 주소로 curl 하면 HTTPRoute 가 틀려도 Ingress 가 대신
+   응답해서 성공한 것처럼 보입니다.
+3. ③ 두 경로가 Gateway 쪽에서 맞게 응답한 뒤에만 Ingress 를 지웁니다. 지우면 Ingress 컨트롤러 쪽 입구만 닫히고 Gateway 쪽
+   응답은 그대로입니다. 순서를 바꾸면 HTTPRoute 에 실수가 있을 때 서비스가 끊깁니다.
+
 ## 검증
 
 ```bash
