@@ -4,6 +4,29 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `obs` contains pod `tracker` with containers `app`, `shipper` and an init
+> container `setup`. A colleague ran `kubectl logs tracker`, got output without any error,
+> and concluded that `shipper` is healthy.
+>
+> 1. Report which container the plain `kubectl logs tracker` actually printed and why, and
+>    list the pod's containers (including the init container) without reading the whole
+>    manifest. Then make `shipper` the container a plain `kubectl logs tracker` shows,
+>    without recreating the pod.
+> 2. Write the last 20 lines of the `app` container's log to
+>    `/opt/course/q15/app.log`.
+> 3. The `shipper` container restarted once. Write the log of its **previous** instance to
+>    `/opt/course/q15/shipper-prev.log` and state the restart reason.
+> 4. Write every line produced by any container in the last 10 minutes containing the
+>    string `ERROR` to `/opt/course/q15/errors.log`.
+> 5. Create a new pod `tailer` in `obs` that runs `nginx:1.27` writing access logs to
+>    `/var/log/nginx/access.log` on a shared `emptyDir`, plus a native sidecar named
+>    `logship` (`busybox:1.36`) that tails that file to its own stdout. Prove that
+>    `kubectl logs tailer -c logship` shows nginx requests.
+
+**해석**
+
 네임스페이스 `obs` 에 컨테이너 `app`, `shipper` 와 init 컨테이너 `setup` 을 가진 파드 `tracker` 가
 있다. 동료가 `kubectl logs tracker` 를 실행해 에러 없이 출력을 받았고, 그걸 보고 `shipper` 가 정상이라고
 결론 내렸다.
@@ -60,15 +83,20 @@ kubectl -n obs logs tracker -c app --tail=20 > /opt/course/q15/app.log
 
 kubectl -n obs logs tracker -c shipper --previous > /opt/course/q15/shipper-prev.log
 kubectl -n obs describe pod tracker | grep -A8 'shipper'
-# Last State: Terminated / Reason: ... / Exit Code: ...
+# Last State: Terminated / Reason: Error / Exit Code: 1     ← 이 환경에서는 앱이 스스로 exit 1
 
 kubectl -n obs logs tracker --all-containers --since=10m --prefix \
   | grep ERROR > /opt/course/q15/errors.log      # --prefix 로 어느 컨테이너의 줄인지 남긴다
+
+# --all-containers 는 컨테이너마다 '현재' 인스턴스만 읽는다.
+# 재시작이 최근 10분 안이었다면 죽은 shipper 인스턴스의 ERROR 줄도 따로 덧붙인다.
+kubectl -n obs logs tracker -c shipper --previous --since=10m --prefix \
+  | grep ERROR >> /opt/course/q15/errors.log
 ```
 
 `--previous` (`-p`)는 재시작 **한 세대 전**의 로그만 줍니다. 두 세대 전은 가져올 수 없습니다 —
 kubelet이 이전 컨테이너 하나만 보관합니다. 그래서 재시작 원인 조사는 재시작이 더 쌓이기 전에
-해야 합니다. `--all-containers` 는 init 컨테이너까지 포함하고, `--since=10m` 은 상대 시간,
+해야 합니다. `--all-containers` 는 init 컨테이너까지 포함하지만 **이전 인스턴스는 포함하지 않습니다**. 그래서 4번에서 `--previous` 를 한 번 더 읽었습니다. `--since=10m` 은 상대 시간,
 `--since-time=2026-09-12T10:00:00Z` 는 절대 시간(RFC3339)입니다.
 
 `describe` 가 아니라 정확한 필드로 재시작 이유를 뽑으려면:
@@ -76,6 +104,35 @@ kubelet이 이전 컨테이너 하나만 보관합니다. 그래서 재시작 �
 ```bash
 kubectl -n obs get pod tracker -o jsonpath='{range .status.containerStatuses[?(@.name=="shipper")]}{.lastState.terminated.reason}{" exit="}{.lastState.terminated.exitCode}{"\n"}{end}'
 ```
+
+### 그림 — tracker 의 컨테이너와 로그를 읽는 방법
+
+```mermaid
+flowchart LR
+    subgraph POD["Pod tracker"]
+        direction TB
+        S["setup<br/>initContainers · Completed"]
+        A["app<br/>spec.containers 첫 번째"]
+        P0["shipper 이전 인스턴스<br/>ERROR 후 exit 1"]
+        P1["shipper 현재 인스턴스<br/>RESTARTS 1"]
+        S -->|"성공한 뒤 시작"| A
+        S -->|"성공한 뒤 시작"| P0
+        P0 -->|"재시작"| P1
+    end
+    A -.->|"-c 없이 실행하면 조용히 이것만<br/>Defaulted container app"| X["동료가 본 출력"]
+    P1 -->|"default-container=shipper 어노테이션 후"| X
+    A -->|"-c app --tail=20"| F1["app.log"]
+    P0 -->|"-c shipper --previous"| F2["shipper-prev.log"]
+    S -->|"--all-containers --since=10m --prefix"| F3["grep ERROR → errors.log"]
+    A -->|"--all-containers --since=10m --prefix"| F3
+    P1 -->|"--all-containers --since=10m --prefix"| F3
+    P0 -.->|"--previous 로 따로 덧붙임"| F3
+```
+
+1. init 컨테이너 `setup` 이 먼저 돌고 끝나야 `app` 과 `shipper` 가 시작합니다. 끝난 init 컨테이너도 로그는 남아 있어서 `-c setup` 이나 `--all-containers` 로 읽을 수 있습니다.
+2. `-c` 를 빼면 kubectl 은 `kubectl.kubernetes.io/default-container` 어노테이션의 컨테이너, 없으면 `spec.containers` 의 첫 번째(`app`)를 고르고 안내 문구는 stderr 로만 냅니다. 동료가 본 것은 `app` 의 로그였습니다. 어노테이션을 `shipper` 로 달면 같은 명령이 `shipper` 를 보여 줍니다.
+3. `shipper` 는 한 번 죽고 다시 시작했습니다. 죽은 인스턴스의 출력은 `--previous` 로만 볼 수 있고, 한 세대 전까지만 남습니다.
+4. `--all-containers --prefix` 는 init 컨테이너를 포함해 컨테이너마다 현재 인스턴스의 로그를 이어 붙이고 줄마다 출처를 답니다. 죽은 인스턴스의 줄은 들어가지 않으므로 `-c shipper --previous` 를 따로 덧붙입니다.
 
 **5) 네이티브 사이드카**
 
