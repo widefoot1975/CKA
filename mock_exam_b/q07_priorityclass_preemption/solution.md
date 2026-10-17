@@ -4,6 +4,30 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `sched` runs batch filler work that must yield to payment processing. Other
+> teams have already created user-defined PriorityClasses in this cluster, all with values
+> above `10000`.
+>
+> 1. Create three PriorityClasses, none of them `globalDefault`:
+>    - `critical-priority`, description `payment path`, whose value is **one less than the
+>      highest user-defined PriorityClass that already exists** (ignore the built-in
+>      `system-*` classes)
+>    - `low-priority`, value `1000`
+>    - `queue-jumper`, value `50000`, which must **never** evict another pod
+> 2. In `sched`, create deployment `filler` with image `nginx:1.27`, priority class
+>    `low-priority` and each container requesting `cpu: 400m`, with enough replicas that the
+>    cluster's allocatable CPU is exhausted and at least one replica stays `Pending`.
+> 3. Create pod `payment` in `sched` with image `nginx:1.27`, priority class
+>    `critical-priority`, requesting `cpu: 500m`.
+> 4. Show that `payment` becomes scheduled and that a `filler` pod was preempted. Write the
+>    event message naming the preemptor to `/opt/q07/preempt.txt`.
+> 5. Write to `/opt/q07/never.txt` what `queue-jumper` still gains from its high value,
+>    given that it cannot preempt.
+
+**해석**
+
 `sched` 네임스페이스에서 배치 채우기 작업이 결제 처리에 자리를 양보해야 한다. 이 클러스터에는 다른
 팀이 만든 사용자 정의 PriorityClass가 이미 있고, 값은 모두 `10000` 보다 크다.
 
@@ -33,6 +57,8 @@
 kubectl get priorityclass --sort-by=.value
 # NAME                      VALUE        GLOBAL-DEFAULT
 # team-batch                20000        false
+# ml-training               300000       false
+# zz-observer               600000       false
 # ops-urgent                750000       false
 # system-cluster-critical   2000000000   false
 # system-node-critical      2000001000   false
@@ -68,6 +94,35 @@ preemptionPolicy: Never
 ```
 
 PriorityClass는 네임스페이스가 없는 클러스터 범위 오브젝트입니다. `-n` 을 붙여도 무시됩니다.
+yaml 대신 명령 한 줄씩으로도 됩니다(`--global-default` 는 기본 false).
+
+```bash
+kubectl create priorityclass critical-priority --value=749999 --description="payment path"
+kubectl create priorityclass low-priority --value=1000
+kubectl create priorityclass queue-jumper --value=50000 --preemption-policy=Never
+```
+
+### 그림 1 — 값 순서와 기준값
+
+```mermaid
+flowchart TB
+    SN["system-node-critical · 2000001000"]
+    SC["system-cluster-critical · 2000000000"]
+    OU["ops-urgent · 750000<br/>사용자 정의 중 최댓값"]
+    CP["critical-priority · 새로 만듦<br/>750000 - 1 = 749999"]
+    ZZ["zz-observer · 600000<br/>preemptionPolicy Never"]
+    ML["ml-training · 300000"]
+    QJ["queue-jumper · 새로 만듦 · 50000<br/>preemptionPolicy Never"]
+    TB["team-batch · 20000"]
+    LP["low-priority · 새로 만듦 · 1000"]
+    SN --> SC
+    SC -.->|"system-* 는 비교에서 제외"| OU
+    OU --> CP --> ZZ --> ML --> QJ --> TB --> LP
+```
+
+1. `system-*` 두 개를 빼면 맨 위는 `ops-urgent`(750000)이므로 `critical-priority` 는 `749999` 입니다.
+2. `queue-jumper`(50000)는 이번에 만드는 클래스라 기준에 넣지 않습니다. 만들기 전에 최댓값을 구해 두면 헷갈릴 일이 없습니다.
+3. 이름순 마지막인 `zz-observer` 는 최댓값이 아닙니다. `--sort-by=.value` 로 값 기준 정렬을 봐야 합니다.
 
 **2) filler — 매니페스트 하나로, 한 번에**
 
@@ -134,14 +189,47 @@ spec:
 일어나지 않아 4번을 증명할 수 없습니다. 피해자 파드에는 종료 전에 이벤트가 남습니다.
 
 ```bash
-kubectl -n sched get events --sort-by=.lastTimestamp | grep -i preempt
-# Preempted by pod <uid> on node worker01
-kubectl -n sched get events --sort-by=.lastTimestamp | grep -i preempt | tail -1 > /opt/q07/preempt.txt
+kubectl -n sched get events --field-selector reason=Preempted
+# LAST SEEN   TYPE     REASON      OBJECT                       MESSAGE
+# 20s         Normal   Preempted   pod/filler-6d9c...-x7k2p     Preempted by pod 3f1c...-... on node worker01
+
+kubectl -n sched get pod payment -o jsonpath='{.metadata.uid}{"\n"}'   # 메시지의 uid 와 같아야 한다
+kubectl -n sched get events --field-selector reason=Preempted \
+  -o jsonpath='{.items[-1:].message}{"\n"}' > /opt/q07/preempt.txt
 ```
+
+최근 버전의 스케줄러는 메시지에 preemptor 를 이름이 아니라 **파드 UID** 로 적습니다. 그래서
+`payment` 의 `metadata.uid` 와 맞춰 봐야 "preemptor 를 지목하는 메시지"임을 확인할 수 있습니다.
+쫓겨난 `filler` 파드는 Deployment 가 곧바로 다시 만들고, 그 새 파드는 자리가 없어 `Pending` 이 됩니다.
+노드에 남은 여유가 100m 보다 작으면 `500m` 을 만들기 위해 `filler` 두 개가 함께 밀려날 수도 있습니다.
+
+### 그림 2 — 선점이 일어나는 순서
+
+```mermaid
+sequenceDiagram
+    participant P as payment (749999)
+    participant S as kube-scheduler
+    participant N as worker01
+    participant F as filler 파드 (1000)
+    P->>S: 생성, 스케줄링 큐 맨 앞
+    S->>N: 500m 들어갈 노드 찾기
+    N-->>S: 모든 노드 CPU 부족
+    S->>S: 낮은 우선순위 파드를 빼면 들어가는 노드 계산
+    S->>F: 삭제 + 이벤트 Preempted by pod uid
+    S->>P: nominatedNodeName = worker01
+    F-->>N: 종료되며 CPU 반환
+    S->>N: payment 바인딩, Running
+```
+
+1. `payment` 는 우선순위가 높아 스케줄링 큐 맨 앞에서 심사받지만, 어느 노드에도 `500m` 이 남아 있지 않습니다.
+2. 스케줄러는 자신보다 우선순위가 낮은 파드(`filler`, 1000)를 빼면 들어갈 수 있는 노드를 고르고, 최소한의 피해자를 삭제합니다.
+3. 피해자에게 `Preempted` 이벤트가 남고, `payment` 에는 `nominatedNodeName` 이 붙어 그 자리를 예약합니다.
+4. 피해자가 graceful 종료로 CPU 를 돌려주면 `payment` 가 바인딩되어 `Running` 이 됩니다. `queue-jumper` 처럼 `preemptionPolicy: Never` 인 파드는 2단계를 건너뛰고 1단계에서 기다리기만 합니다.
 
 **5) queue-jumper** — `preemptionPolicy: Never` 는 우선순위를 없애는 것이 아닙니다. 그 파드는
 **스케줄링 큐에서는 여전히 앞자리**를 차지해 낮은 우선순위 파드보다 먼저 심사받습니다. 다만 자리가
-없으면 남을 쫓아내지 않고 `Pending` 으로 기다립니다. 즉 "새치기는 하지만 쫓아내지는 않는다"가 답입니다.
+없으면 남을 쫓아내지 않고 `Pending` 으로 기다립니다. 즉 "새치기는 하지만 쫓아내지는 않는다"가 답입니다. 반대로 자기보다 높은 우선순위 파드에게는
+여전히 선점당할 수 있습니다.
 
 ```bash
 echo "higher position in the scheduling queue (scheduled before lower-priority pending pods), but it waits instead of evicting" > /opt/q07/never.txt
