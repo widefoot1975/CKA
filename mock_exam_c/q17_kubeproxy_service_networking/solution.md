@@ -4,6 +4,24 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> `worker01` was rebooted this morning after kernel maintenance. Since then, in namespace
+> `app`, Service `web` (ClusterIP, port 80) still has 3 healthy endpoints, and from a pod
+> **on `worker01`** `curl http://<pod-ip>:80` works for every backend pod, but
+> `curl http://web.app.svc.cluster.local` and `curl http://<cluster-ip>:80` both hang.
+> NodePort Service `web-np` is unreachable through `worker01`'s IP. Pods on other nodes are
+> not affected.
+>
+> 1. Show that neither CoreDNS nor the Service's endpoints are the cause — one command each.
+> 2. Identify the component responsible for ClusterIP translation and check its state on
+>    `worker01`.
+> 3. Inspect the node's NAT rules to show the Service chains are missing.
+> 4. Find and fix the root cause. Do not recreate the Service.
+> 5. Verify ClusterIP and NodePort both work again.
+
+**해석**
+
 `worker01` 이 오늘 아침 커널 점검 뒤 재부팅되었다. 그 뒤로 네임스페이스 `app` 의 Service `web`
 (ClusterIP, 포트 80)에는 여전히 정상 엔드포인트 3개가 있고, **`worker01` 위의** 파드에서
 `curl http://<파드IP>:80` 은 모든 백엔드 파드에 대해 동작하지만 `curl http://web.app.svc.cluster.local` 과
@@ -18,12 +36,18 @@
 
 ## 모범 풀이
 
-테스트 파드는 **반드시 worker01에 띄웁니다.** 아무 노드에나 뜨면 멀쩡한 노드에서 테스트하게 되어
-"정상"으로 오판합니다.
+테스트는 **반드시 worker01 위의 파드에서** 합니다. 아무 노드에서나 하면 멀쩡한 노드에서 테스트하게 되어
+"정상"으로 오판합니다. Setup 이 worker01 에 `client` 파드(busybox)를 미리 띄워 두었으니 그 안에서
+`wget` 으로 확인합니다(busybox 에는 `curl` 이 없습니다).
 
 ```bash
-ON_W1='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"worker01"}}}'
+kubectl -n app get pod client -o wide        # NODE 가 worker01 인지 확인
 ```
+
+새 테스트 파드를 worker01 에 띄우려 하면 `ContainerCreating` 에서 멈출 수 있습니다. Calico 처럼 CNI 가
+API 서버를 `kubernetes` Service 의 ClusterIP(`10.96.0.1`)로 부르는 경우, 이 노드에서는 그 ClusterIP 도
+변환되지 않아 파드 IP 할당이 실패하기 때문입니다. 이것도 같은 원인의 증상이니, 이미 떠 있는 파드에서
+`kubectl exec` 으로 확인하는 편이 확실합니다.
 
 **1) CoreDNS와 엔드포인트 배제**
 
@@ -32,8 +56,7 @@ kubectl -n app get endpointslice -l kubernetes.io/service-name=web
 # ENDPOINTS  10.244.1.5,10.244.2.7,10.244.2.8     ← 엔드포인트는 정상
 
 DNSPOD=$(kubectl -n kube-system get pod -l k8s-app=kube-dns -o jsonpath='{.items[0].status.podIP}')
-kubectl -n app run dbg --rm -it --image=busybox:1.36 --restart=Never --overrides="$ON_W1" -- \
-  nslookup web.app.svc.cluster.local $DNSPOD
+kubectl -n app exec client -- nslookup web.app.svc.cluster.local $DNSPOD
 # Address: 10.96.88.21     ← CoreDNS 파드에 직접 물으면 정상 응답
 ```
 
@@ -76,7 +99,7 @@ kube-proxy는 kube-system의 **DaemonSet**입니다. 노드마다 정확히 하�
 | 한 노드의 kube-proxy만 `CrashLoopBackOff`, 로그에 `iptables-restore` 실패 | 노드의 iptables 백엔드 혼용(nft/legacy), 커널 모듈 문제 | 노드에서 `iptables-save`, `nft list ruleset` 확인 |
 | 모든 kube-proxy가 `open /var/lib/kube-proxy/config.conf: no such file` | ConfigMap `kube-proxy` 의 키 손상 | ConfigMap 복원 |
 | `unable to load in-cluster configuration` / 401 | ServiceAccount·RBAC 문제 | `system:node-proxier` 바인딩 확인 |
-| 파드는 Running인데 룰 없음 | ConfigMap의 `mode` 값 오류 | ConfigMap 확인 |
+| `iptables-save` 에 KUBE 체인이 없는데 kube-proxy 는 Running | 모드가 nftables·IPVS 라 다른 곳에 룰이 있음 | ConfigMap `mode` 확인 후 `nft list table ip kube-proxy` / `ipvsadm -Ln` |
 | 노드에서 `net.ipv4.ip_forward=0` | 포워딩 비활성 | `sysctl -w net.ipv4.ip_forward=1` |
 
 **3) NAT 룰 확인** (worker01, root)
@@ -122,6 +145,34 @@ kubectl -n kube-system rollout status ds kube-proxy
 사고가 나므로 셀렉터를 원복하는 쪽이 근본 해결입니다. kube-proxy 파드가 worker01에 뜨면 시작하면서 룰을
 전부 다시 씁니다. 룰을 손으로 복구할 필요는 없습니다 — 손으로 넣은 룰은 다음 동기화에서 지워집니다.
 
+### 그림 — 같은 ClusterIP 인데 노드마다 결과가 다른 이유
+
+```mermaid
+flowchart LR
+    subgraph W1["worker01 — kube-proxy 없음, 재부팅으로 룰도 없음"]
+        C1["client 파드<br/>wget http://ClusterIP:80"]
+        N1["worker01 netfilter<br/>KUBE-SERVICES 체인 없음"]
+        C1 --> N1
+    end
+    subgraph W2["다른 노드 — kube-proxy Running"]
+        C2["파드<br/>wget http://ClusterIP:80"]
+        N2["netfilter<br/>KUBE-SVC → KUBE-SEP<br/>DNAT 파드IP:80"]
+        C2 --> N2
+    end
+    DS["DaemonSet kube-proxy<br/>nodeSelector kube-proxy=enabled"]
+    DS -.->|"라벨 있는 노드에만 파드"| W2
+    DS -.-x|"worker01 에는 라벨 없음"| W1
+    N1 -.-x|"목적지가 가상 IP 그대로<br/>기본 경로로 나가 버려짐 → hang"| X["응답 없음"]
+    N2 -->|"파드IP:80"| P["web 파드 3개"]
+    C1 -->|"파드IP:80 직접은 성공<br/>CNI 라우팅은 정상"| P
+```
+
+1. 두 노드의 파드는 같은 ClusterIP 로 요청하지만, 그 IP 를 실제 파드 IP 로 바꾸는 일은 **패킷을 보낸 노드의 netfilter** 에서 일어납니다. 그 룰은 각 노드의 kube-proxy 가 씁니다.
+2. 다른 노드에서는 kube-proxy 가 `KUBE-SERVICES → KUBE-SVC-… → KUBE-SEP-…` 체인을 만들어 두었으므로 ClusterIP:80 이 `파드IP:80` 으로 DNAT 되어 nginx 에 닿습니다.
+3. DaemonSet 의 `nodeSelector` 에 라벨이 없는 worker01 에는 kube-proxy 파드가 없습니다. 이전 룰은 재부팅으로 사라졌고 다시 쓸 주체가 없으니, 패킷은 목적지가 가상 IP 인 채로 기본 경로로 나가 버려집니다. 아무도 거절하지 않으므로 `refused` 가 아니라 멈춥니다(hang). NodePort 도 같은 룰(`KUBE-NODEPORTS`)이 없어서 worker01 IP 로는 닿지 않습니다.
+4. 파드 IP 로 직접 보내는 요청은 kube-proxy 를 거치지 않고 CNI 가 만든 경로만 쓰므로 worker01 에서도 성공합니다. 이 대비가 "CNI 는 정상, ClusterIP 변환만 고장" 이라는 결론의 근거입니다.
+5. 셀렉터에서 `kube-proxy` 키를 지우면 DaemonSet 이 worker01 에 파드를 만들고, 그 파드가 시작하면서 모든 Service 룰을 다시 씁니다.
+
 ## 검증
 
 ```bash
@@ -133,14 +184,12 @@ kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide | grep worker01   
 iptables -t nat -L KUBE-SERVICES -n | grep 10.96.88.21     # 서비스 룰 존재
 
 CIP=$(kubectl -n app get svc web -o jsonpath='{.spec.clusterIP}')
-kubectl -n app run v --rm -it --image=busybox:1.36 --restart=Never --overrides="$ON_W1" -- \
-  wget -qO- --timeout=3 http://$CIP:80                     # HTML 응답
-
-kubectl -n app run v2 --rm -it --image=busybox:1.36 --restart=Never --overrides="$ON_W1" -- \
-  wget -qO- --timeout=3 http://web.app.svc.cluster.local
+kubectl -n app exec client -- wget -qO- -T 3 http://$CIP:80 | head -4          # nginx HTML 응답
+kubectl -n app exec client -- wget -qO- -T 3 http://web.app.svc.cluster.local | head -4
 
 NP=$(kubectl -n app get svc web-np -o jsonpath='{.spec.ports[0].nodePort}')
-curl -s --max-time 3 http://<worker01-ip>:$NP | head -3
+W1=$(kubectl get node worker01 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+curl -s --max-time 3 http://$W1:$NP | head -4                                  # k8s-c1 에서
 ```
 
 ## 오답 원인 / 배운 점
