@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 # f09 — Least permissive NetworkPolicy · 사전 환경 설정
 # 실행: bash setup.sh   (k8s-c1 에서 실행, 여러 번 실행해도 안전)
+# namespace app 은 mock_exam_c/q13·q17 도 쓰므로 namespace 는 지우지 않고 이 문제의 오브젝트만 정리한다.
+# 주의: default-deny-ingress 가 app 의 모든 파드를 막으므로 C13·C17 과 함께 풀지 말 것
 set -euo pipefail
 
-# 0) 이전 실습 흔적 정리 (namespace 를 지우면 적용했던 후보 정책도 함께 지워진다)
-kubectl delete ns app --ignore-not-found --wait=true
+# 0) 이전 실습 흔적 정리 (이 문제의 파드와 정책만, 적용했던 후보 정책 포함)
+kubectl -n app delete networkpolicy default-deny-ingress allow-backend-a allow-backend-b allow-backend-c --ignore-not-found 2>/dev/null || true
+kubectl -n app delete pod backend frontend --ignore-not-found --wait=true 2>/dev/null || true
 rm -rf /opt/course/f09
-kubectl create ns app
+#    namespace 는 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
+if ! kubectl get ns app >/dev/null 2>&1; then
+  kubectl create ns app
+  kubectl label ns app cka-lab-f09=created --overwrite
+fi
 
 # 1) 파드 두 개: backend 는 8080 에서 HTTP 응답, frontend 는 busybox
 kubectl -n app run backend  --image=hashicorp/http-echo:1.0 --labels=app=backend --port=8080 -- -listen=:8080 -text=backend

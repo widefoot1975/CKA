@@ -13,18 +13,23 @@
 ## Setup — 사전 환경 설정
 
 문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+namespace `logs` 는 A16 도 쓰므로 namespace 는 지우지 않고 이 문제의 파드만 정리한다.
 
 **방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
 
 ```bash
-# 0) 이전 실습 흔적 정리
-kubectl delete ns logs --ignore-not-found --wait=true
+# 0) 이전 실습 흔적 정리 (이 문제가 만드는 파드만)
+kubectl -n logs delete pod order-api --ignore-not-found --wait=true 2>/dev/null || true
 rm -rf /opt/course/d16
 
 # 1) namespace + Pod order-api
 #    - log-agent: 네이티브 사이드카, 시작하자마자 15줄을 찍고 5초마다 INFO/ERROR 를 남긴다
 #    - api: 첫 실행은 FATAL 을 남기고 exit 1 → 한 번 재시작한 뒤에는 계속 돈다 (emptyDir 의 표식 파일로 구분)
-kubectl create ns logs
+#    namespace 는 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
+if ! kubectl get ns logs >/dev/null 2>&1; then
+  kubectl create ns logs
+  kubectl label ns logs cka-lab-d16=created --overwrite
+fi
 cat <<'EOF' | kubectl apply -f -
 apiVersion: v1
 kind: Pod
@@ -106,8 +111,22 @@ bash cleanup.sh    # 실습 후 정리
 <details><summary>정리 명령 (방법 A)</summary>
 
 ```bash
-kubectl delete ns logs --ignore-not-found
+kubectl -n logs delete pod order-api --ignore-not-found --wait=true 2>/dev/null || true
 rm -rf /opt/course/d16
+
+# namespace 는 이 실습의 setup 이 만들었고(라벨 cka-lab-d16=created) 남은 리소스가 없을 때만 지운다
+for ns in logs; do
+  [ "$(kubectl get ns "$ns" -o jsonpath='{.metadata.labels.cka-lab-d16}' 2>/dev/null || true)" = "created" ] || continue
+  left=$( { kubectl -n "$ns" get all,configmap,secret,ingress,pvc,networkpolicy -o name 2>/dev/null
+            kubectl -n "$ns" get gateway,httproute -o name 2>/dev/null; } \
+          | grep -v '^configmap/kube-root-ca.crt$' || true)
+  if [ -z "$left" ]; then
+    kubectl delete ns "$ns"
+  else
+    echo "namespace $ns 에 다른 리소스가 남아 있어 namespace 는 지우지 않음:"
+    echo "$left"
+  fi
+done
 ```
 
 </details>

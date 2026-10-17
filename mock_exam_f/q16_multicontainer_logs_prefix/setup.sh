@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # f16 — Collect logs from every container of a Pod · 사전 환경 설정
 # 실행: bash setup.sh   (k8s-c1 에서 실행, 여러 번 실행해도 안전)
+# namespace obs 는 mock_exam_c/q15 도 쓰므로 namespace 는 지우지 않고 이 문제의 파드만 정리한다.
 set -euo pipefail
 
-# 0) 이전 실습 흔적 정리
-kubectl delete ns obs --ignore-not-found --wait=true
+# 0) 이전 실습 흔적 정리 (이 문제가 만드는 파드만)
+kubectl -n obs delete pod pipeline --ignore-not-found --wait=true 2>/dev/null || true
 rm -rf /opt/course/f16
 
 # 1) namespace + Pod pipeline: init 컨테이너 migrate → 컨테이너 ingest, transform
-kubectl create ns obs
+#    namespace 는 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
+if ! kubectl get ns obs >/dev/null 2>&1; then
+  kubectl create ns obs
+  kubectl label ns obs cka-lab-f16=created --overwrite
+fi
 cat <<'EOF' | kubectl apply -f -
 apiVersion: v1
 kind: Pod

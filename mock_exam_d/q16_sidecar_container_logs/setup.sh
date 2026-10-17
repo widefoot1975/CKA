@@ -2,16 +2,21 @@
 # d16 — Read logs from an app and its sidecar · 사전 환경 설정
 # 실행: bash setup.sh   (k8s-c1 에서 실행, 여러 번 실행해도 안전)
 # 필요: 네이티브 사이드카(initContainers + restartPolicy: Always)는 v1.29 이상
+# namespace logs 는 mock_exam_a/q16 도 쓰므로 namespace 는 지우지 않고 이 문제의 파드만 정리한다.
 set -euo pipefail
 
-# 0) 이전 실습 흔적 정리
-kubectl delete ns logs --ignore-not-found --wait=true
+# 0) 이전 실습 흔적 정리 (이 문제가 만드는 파드만)
+kubectl -n logs delete pod order-api --ignore-not-found --wait=true 2>/dev/null || true
 rm -rf /opt/course/d16
 
 # 1) namespace + Pod order-api
 #    - log-agent: 네이티브 사이드카, 시작하자마자 15줄을 찍고 5초마다 INFO/ERROR 를 남긴다
 #    - api: 첫 실행은 FATAL 을 남기고 exit 1 → 한 번 재시작한 뒤에는 계속 돈다 (emptyDir 의 표식 파일로 구분)
-kubectl create ns logs
+#    namespace 는 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
+if ! kubectl get ns logs >/dev/null 2>&1; then
+  kubectl create ns logs
+  kubectl label ns logs cka-lab-d16=created --overwrite
+fi
 cat <<'EOF' | kubectl apply -f -
 apiVersion: v1
 kind: Pod

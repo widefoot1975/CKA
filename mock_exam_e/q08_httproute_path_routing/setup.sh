@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # e08 — Route two paths with one HTTPRoute · 사전 환경 설정
 # 실행: bash setup.sh   (k8s-c1 에서 실행, 여러 번 실행해도 안전)
+# namespace infra 는 mock_exam_c/q05 가, shop 은 A08·A15·C06·C08·D05·F15 가 함께 쓰므로 namespace 는 지우지 않고 이 문제의 오브젝트만 정리한다.
+# 주의: mock_exam_c/q08 도 shop 에 HTTPRoute shop-route 를 만들므로 함께 풀지 말 것
 set -euo pipefail
 
 # 1) Gateway API CRD + NGINX Gateway Fabric (GatewayClass nginx, 데이터 플레인은 NodePort)
@@ -9,10 +11,20 @@ kubectl apply --server-side -f https://raw.githubusercontent.com/nginx/nginx-gat
 kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/v2.7.2/deploy/nodeport/deploy.yaml
 kubectl -n nginx-gateway rollout status deploy nginx-gateway --timeout=180s
 
-# 2) 이전 실습 흔적 정리 후 namespace 두 개
-kubectl delete ns infra shop --ignore-not-found --wait=true
-kubectl create ns infra
-kubectl create ns shop
+# 2) 이전 실습 흔적 정리 (이 문제가 만드는 오브젝트만)
+kubectl -n shop delete httproute shop-route --ignore-not-found 2>/dev/null || true
+kubectl -n shop delete svc catalog cart --ignore-not-found 2>/dev/null || true
+kubectl -n shop delete deploy catalog cart --ignore-not-found --cascade=foreground --wait=true 2>/dev/null || true
+kubectl -n infra delete gateway main-gw --ignore-not-found 2>/dev/null || true
+#    namespace 두 개 — 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
+if ! kubectl get ns infra >/dev/null 2>&1; then
+  kubectl create ns infra
+  kubectl label ns infra cka-lab-e08=created --overwrite
+fi
+if ! kubectl get ns shop >/dev/null 2>&1; then
+  kubectl create ns shop
+  kubectl label ns shop cka-lab-e08=created --overwrite
+fi
 
 # 3) Gateway main-gw (listener http, 모든 네임스페이스의 route 허용) — kubectl create 로는 못 만들어서 이것만 YAML
 kubectl apply -f - <<'YAML'

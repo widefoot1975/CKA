@@ -13,14 +13,20 @@
 ## Setup — 사전 환경 설정
 
 문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+namespace `app` 은 C13·C17 도 쓰므로 namespace 는 지우지 않고 이 문제의 파드와 정책만 정리한다. `default-deny-ingress` 가 `app` 의 모든 파드를 막으므로 C13·C17 과 동시에 펼쳐 두지 않는다.
 
 **방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
 
 ```bash
-# 0) 이전 실습 흔적 정리 (namespace 를 지우면 적용했던 후보 정책도 함께 지워진다)
-kubectl delete ns app --ignore-not-found --wait=true
+# 0) 이전 실습 흔적 정리 (이 문제의 파드와 정책만, 적용했던 후보 정책 포함)
+kubectl -n app delete networkpolicy default-deny-ingress allow-backend-a allow-backend-b allow-backend-c --ignore-not-found 2>/dev/null || true
+kubectl -n app delete pod backend frontend --ignore-not-found --wait=true 2>/dev/null || true
 rm -rf /opt/course/f09
-kubectl create ns app
+#    namespace 는 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
+if ! kubectl get ns app >/dev/null 2>&1; then
+  kubectl create ns app
+  kubectl label ns app cka-lab-f09=created --overwrite
+fi
 
 # 1) 파드 두 개: backend 는 8080 에서 HTTP 응답, frontend 는 busybox
 kubectl -n app run backend  --image=hashicorp/http-echo:1.0 --labels=app=backend --port=8080 -- -listen=:8080 -text=backend
@@ -109,8 +115,23 @@ bash cleanup.sh    # 실습 후 정리
 <details><summary>정리 명령 (방법 A)</summary>
 
 ```bash
-kubectl delete ns app --ignore-not-found
+kubectl -n app delete networkpolicy default-deny-ingress allow-backend-a allow-backend-b allow-backend-c --ignore-not-found 2>/dev/null || true
+kubectl -n app delete pod backend frontend --ignore-not-found --wait=true 2>/dev/null || true
 rm -rf /opt/course/f09
+
+# namespace 는 이 실습의 setup 이 만들었고(라벨 cka-lab-f09=created) 남은 리소스가 없을 때만 지운다
+for ns in app; do
+  [ "$(kubectl get ns "$ns" -o jsonpath='{.metadata.labels.cka-lab-f09}' 2>/dev/null || true)" = "created" ] || continue
+  left=$( { kubectl -n "$ns" get all,configmap,secret,ingress,pvc,networkpolicy -o name 2>/dev/null
+            kubectl -n "$ns" get gateway,httproute -o name 2>/dev/null; } \
+          | grep -v '^configmap/kube-root-ca.crt$' || true)
+  if [ -z "$left" ]; then
+    kubectl delete ns "$ns"
+  else
+    echo "namespace $ns 에 다른 리소스가 남아 있어 namespace 는 지우지 않음:"
+    echo "$left"
+  fi
+done
 ```
 
 </details>
