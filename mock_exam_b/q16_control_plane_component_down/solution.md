@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Newly created pods stay `Pending` forever with no scheduling events. Existing pods keep
+> running and `kubectl` works normally.
+>
+> 1. Identify which control plane component is failing and write its name to
+>    `/opt/q16/component.txt`.
+> 2. On `cp01`, find the reason using the container runtime and the kubelet journal, since
+>    the component's pod does not appear in `kubectl get pods -n kube-system`. Write the
+>    decisive log line to `/opt/q16/log.txt`.
+> 3. Repair the component. Do not delete anything under `/etc/kubernetes/pki`.
+> 4. Confirm a new pod schedules and the component is `Running` and `1/1`.
+> 5. Write to `/opt/q16/why.txt` where this component's manifest lives and why
+>    `kubectl delete pod` is not how you restart it.
+
+**해석**
+
 새로 만든 파드가 스케줄링 이벤트 없이 계속 `Pending` 이다. 기존 파드는 계속 돌고 `kubectl` 도
 정상 동작한다.
 
@@ -61,6 +78,8 @@ cp /etc/kubernetes/manifests/kube-scheduler.yaml /root/kube-scheduler.yaml.bak
 vi /etc/kubernetes/manifests/kube-scheduler.yaml
 ```
 
+이 문제처럼 파드가 API 에 **아예 안 보이면** 표의 첫 두 줄(파싱 실패, 파일 위치·이름) 중 하나입니다. 이 문제의 `setup.sh` 는 들여쓰기를 깨뜨려 kubelet journal 에 `"Could not process manifest file" err="... yaml: line NN: did not find expected key" path="/etc/kubernetes/manifests/kube-scheduler.yaml"` 를 남깁니다. 에러 메시지의 줄 번호 근처 들여쓰기를 바로잡으면 됩니다. 아래는 파드가 보이는 다른 변형입니다.
+
 경로 오타 예시 — `--kubeconfig` 플래그와 그 파일을 가져오는 `volumes[].hostPath.path` 는
 **둘 다** 맞아야 합니다.
 
@@ -100,6 +119,24 @@ systemctl restart kubelet
 API server가 아니라 kubelet이 파일에서 직접 만들기 때문에 `kubectl delete pod` 로 지워도
 kubelet이 즉시 같은 파드를 다시 만듭니다. 재시작은 파일을 수정하거나 디렉터리 밖으로
 잠시 옮기는 방식으로 합니다.
+
+### 그림 — 스케줄러 장애를 증상으로 나누기
+
+```mermaid
+flowchart TD
+    A["새 파드 Pending + 이벤트 없음<br/>kubectl 은 정상"] --> B["범인: kube-scheduler"]
+    B --> C{"kubectl -n kube-system get pods<br/>kube-scheduler-cp01 이 보이나?"}
+    C -->|"안 보임"| D["kubelet 이 매니페스트를 못 읽음<br/>journalctl -u kubelet<br/>Could not process manifest file"]
+    C -->|"보임 · CrashLoopBackOff, Error"| E["crictl ps -a → crictl logs<br/>플래그·kubeconfig 경로 오류"]
+    C -->|"보임 · ImagePullBackOff"| F["이미지 태그 오타<br/>(D14 와 같은 유형)"]
+    D --> G["yaml 들여쓰기·키 수정<br/>또는 파일 이름·위치 복원"]
+    E --> H["플래그·hostPath 경로 수정"]
+    F --> I["태그 수정"]
+```
+
+1. `kubectl` 이 되고 기존 파드도 돌면 API 서버와 etcd 는 정상입니다. 새 파드만 이벤트 없이 멈춰 있으니 스케줄러로 좁혀집니다.
+2. 다음 갈림길은 미러 파드가 API 에 보이느냐입니다. 안 보이면 kubelet 이 그 파일로 파드를 만들지 못한 것이고, 단서는 kubelet journal 에만 있습니다. 이 문제가 이 경우입니다.
+3. 파드가 보이면 kubelet 은 파일을 읽었고 컨테이너 단계에서 실패한 것입니다. 상태가 CrashLoop 이면 `crictl logs`, ImagePullBackOff 면 이미지 태그를 봅니다.
 
 ## 검증
 

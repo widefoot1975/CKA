@@ -4,6 +4,18 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Node `worker01` reports `NotReady`. The cause is on the node itself.
+>
+> 1. From `k8s-c1`, find which condition of `worker01` is failing and the message reported for it.
+> 2. On `worker01`, find the cause and fix it so that the node also comes back `Ready` after a
+>    reboot.
+> 3. Write the cause in one line to `/opt/course/d13/cause.txt` on `worker01`.
+> 4. Confirm that `worker01` is `Ready`.
+
+**해석**
+
 노드 `worker01` 이 `NotReady` 로 보고된다. 원인은 노드 자체에 있다.
 
 1. `k8s-c1` 에서 `worker01` 의 어느 condition이 실패했고 어떤 메시지가 보고되는지 찾는다.
@@ -54,6 +66,23 @@ echo "kubelet service on worker01 was stopped and disabled" > /opt/course/d13/ca
 
 **핵심은 `start` 와 `enable` 의 차이입니다.** `systemctl start`(또는 `restart`)만 하면 지금은 `Ready` 로
 돌아오지만 재부팅하면 다시 `NotReady` 가 됩니다. "재부팅 후에도"라는 조건은 `enable` 을 요구합니다.
+
+### 그림 — NotReady 노드를 좁혀 가는 순서
+
+```mermaid
+flowchart TD
+    A["kubectl get nodes<br/>worker01 NotReady"] --> B{"describe node<br/>Ready 의 Status 는?"}
+    B -->|"Unknown<br/>Kubelet stopped posting node status"| C["kubelet 이 보고를 못 함<br/>→ 노드에서 kubelet 확인"]
+    B -->|"False + 구체적인 메시지"| D["kubelet 은 살아 있음<br/>→ 메시지가 가리키는 곳<br/>(컨테이너 런타임, CNI 등)"]
+    C --> E{"systemctl status kubelet"}
+    E -->|"Active: inactive (dead)<br/>Loaded: ...; disabled"| F["systemctl enable --now kubelet"]
+    E -->|"activating (auto-restart)<br/>시작했다 죽기를 반복"| G["journalctl -u kubelet<br/>설정·인증서 오류 찾기"]
+    F --> H["지금 Ready<br/>+ 재부팅 후에도 Ready"]
+```
+
+1. 노드 condition 의 `Ready` 값이 첫 갈림길입니다. `Unknown` 은 kubelet 의 보고가 끊긴 것이라 노드의 kubelet 부터 봅니다. `False` 는 kubelet 이 살아서 다른 문제를 알리는 것이라 메시지를 따라갑니다(E14 가 이쪽입니다).
+2. 노드에서는 `systemctl status kubelet` 한 번으로 두 가지를 같이 읽습니다. `Active:` 줄은 지금 도는지, `Loaded:` 줄 끝의 `enabled/disabled` 는 부팅 때 켜지는지입니다.
+3. 이 문제는 멈춤(`inactive`)과 비활성(`disabled`)이 겹친 경우라 `enable --now` 한 번으로 둘 다 고칩니다. 계속 재시작을 반복하는 경우라면 프로세스는 켜지는데 설정이 틀린 것이므로 journal 에서 에러를 찾습니다.
 
 ## 검증
 

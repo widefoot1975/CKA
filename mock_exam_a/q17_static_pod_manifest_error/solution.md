@@ -4,6 +4,22 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Every `kubectl` command on `cp01` fails with `connection refused` on port 6443. A colleague
+> edited a control plane manifest shortly before.
+>
+> 1. Confirm the API server is not listening and that this is not a kubeconfig problem.
+> 2. Without using `kubectl`, list the control plane containers and identify which one is not
+>    running.
+> 3. Read that container's output and quote the exact error.
+> 4. Back the manifest up, then repair it so the API server comes back. Do not run
+>    `kubectl apply` and do not restart the kubelet.
+> 5. Confirm the API server answers and all four control plane static pods are running, and
+>    state in one line the mechanism that restarted the pod.
+
+**해석**
+
 `cp01` 에서 모든 `kubectl` 명령이 포트 6443에 대해 `connection refused` 로 실패한다. 조금 전에 동료가 컨트롤 플레인 매니페스트를 수정했다.
 
 1. API 서버가 리스닝하지 않는 것과, 이것이 kubeconfig 문제가 아님을 확인한다.
@@ -46,6 +62,8 @@ crictl logs --tail 50 $CID
 journalctl -u kubelet --since "10 min ago" --no-pager | grep -i -E 'error|invalid|cannot'
 ```
 
+이 문제의 `setup.sh` 로 만든 환경이라면 컨테이너는 생성되었다가 바로 종료되고, `crictl logs` 에 `Error: unknown flag: --authorization-modes` 가 나옵니다. 아래 표의 두 번째 줄 유형입니다.
+
 **4) 수리 — 백업부터**
 
 ```bash
@@ -75,6 +93,24 @@ sleep 20
 crictl ps -a | grep apiserver          # 컨테이너가 사라진 것 확인
 mv /root/kube-apiserver.yaml /etc/kubernetes/manifests/
 ```
+
+### 그림 — kubectl 없이 원인을 찾는 순서
+
+```mermaid
+flowchart TD
+    A["kubectl: 6443 connection refused"] --> B{"ss -lntp 로 본 6443<br/>누가 듣고 있나?"}
+    B -->|"있음"| C["프로세스는 있음<br/>→ kubeconfig 의 server 주소·포트 확인"]
+    B -->|"없음"| D{"crictl ps -a 에<br/>kube-apiserver 컨테이너가 있나?"}
+    D -->|"Exited, 재시작 반복"| E["crictl logs 컨테이너ID<br/>플래그·인증서·etcd 오류"]
+    D -->|"아예 없음"| F["journalctl -u kubelet<br/>매니페스트 yaml 파싱 오류"]
+    E --> G["manifests 밖에 백업<br/>→ 파일 수정·저장"]
+    F --> G
+    G --> H["kubelet 이 변경을 감지<br/>→ 정적 파드를 다시 만듦"]
+```
+
+1. `ss` 로 6443 이 비어 있는지부터 봅니다. 무언가 듣고 있다면 API 서버는 살아 있고 kubeconfig 쪽 문제입니다.
+2. 비어 있으면 컨테이너 런타임에 직접 묻습니다. 컨테이너가 있는데 죽는다면 그 출력(`crictl logs`)에 답이 있고, 컨테이너가 아예 없다면 kubelet 이 파일을 읽지 못한 것이라 kubelet journal 에 답이 있습니다.
+3. 어느 쪽이든 고치는 곳은 매니페스트 파일 하나입니다. 저장하면 kubelet 이 감지해 파드를 다시 만들므로 `kubectl apply` 도 kubelet 재시작도 하지 않습니다. 이것이 5번에서 적을 메커니즘입니다.
 
 ## 검증
 
