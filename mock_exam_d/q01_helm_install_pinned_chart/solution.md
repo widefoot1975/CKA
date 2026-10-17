@@ -121,8 +121,6 @@ kubectl -n demo get deploy
 - https://helm.sh/docs/helm/helm_upgrade/
 - https://helm.sh/docs/helm/helm_search_repo/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q02 →](../q02_rbac_pod_reader_serviceaccount/question.md)

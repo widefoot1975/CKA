@@ -125,8 +125,6 @@ kubectl get certs -A                  # 짧은 이름이 실제로 동작한다
 - https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/
 - https://kubernetes.io/docs/reference/kubectl/quick-reference/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q04 →](../q04_kubeadm_cert_renewal/question.md)

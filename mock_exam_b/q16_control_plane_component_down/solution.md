@@ -166,8 +166,6 @@ kubectl delete pod sched-test
 - https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q17 →](../q17_kubelet_certificate_expired/question.md)

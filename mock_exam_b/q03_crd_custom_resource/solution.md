@@ -159,8 +159,6 @@ cat /opt/q03/crd.txt
 - https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/
 - https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q04 →](../q04_crictl_container_runtime/question.md)

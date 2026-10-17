@@ -139,8 +139,6 @@ cat /opt/course/e03/apiversion.txt     # demo.example.com/v1
 - https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/
 - https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q04 →](../q04_ha_control_plane_inspect/question.md)

@@ -253,8 +253,6 @@ kubectl get pv $PV -o jsonpath='{.spec.claimRef}{"\n"}'   # 빈 출력
 - https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reclaiming
 - https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q13 →](../q13_coredns_resolution_failure/question.md)

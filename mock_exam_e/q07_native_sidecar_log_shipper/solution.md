@@ -131,8 +131,6 @@ kubectl -n synergy logs deploy/synergy-app -c sidecar --tail=3
 - https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
 - https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q08 →](../q08_httproute_path_routing/question.md)

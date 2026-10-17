@@ -182,8 +182,6 @@ kubectl delete pod probe                         # 확인용 파드 정리
 - 검색어: `troubleshooting clusters kubelet`
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q14 →](../q14_pod_crashloopbackoff/question.md)

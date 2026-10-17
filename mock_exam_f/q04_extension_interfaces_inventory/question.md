@@ -7,46 +7,24 @@
 | Points | 6 |
 | Host | `ssh k8s-c1` → `ssh worker01` for the node steps |
 | Target time | 6 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
 클러스터에 이미 있는 런타임·CNI·CSI 를 조사하는 문제라 대부분 만들 것이 없다. 답 디렉터리를 비우고,
 CSI 드라이버가 하나도 등록되어 있지 않은 실습 클러스터라면 4번 답이 빈 파일이 되지 않도록 연습용 CSIDriver
 등록 오브젝트를 하나 만든다.
-`k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+`k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 노드 worker01 이 있는지 확인
-kubectl get node worker01
-
-# 1) 이전 실습 흔적 정리 — 답 파일 디렉터리
-sudo rm -rf /opt/course/f04
-sudo mkdir -p /opt/course/f04 && sudo chown $(id -u):$(id -g) /opt/course/f04
-
-# 2) CSI 드라이버가 하나도 없을 때만 — 연습용 CSIDriver 등록 오브젝트 (kubectl create 로는 못 만들어서 YAML)
-kubectl get csidrivers
-kubectl apply -f - <<'YAML'
-apiVersion: storage.k8s.io/v1
-kind: CSIDriver
-metadata:
-  name: hostpath.csi.k8s.io
-  labels: {practice: f04}
-spec:
-  attachRequired: false
-  podInfoOnMount: true
-  volumeLifecycleModes: [Persistent]
-YAML
-
-# 3) 시작 상태 확인
-kubectl get nodes -o wide
-kubectl get csidrivers
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_f/q04_extension_interfaces_inventory
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -59,15 +37,6 @@ bash cleanup.sh    # 실습 후 정리
 "등록된 드라이버 이름"을 묻기 때문에 그것으로 충분하지만, 이 드라이버로 볼륨을 만들 수는 없다.
 `/etc/cni/net.d/` 와 kubelet 설정은 `worker01` 에 원래 있는 것을 그대로 읽는다. CNI 를 바꾼 적이 있다면 옛 설정
 파일이 이름순으로 앞에 남아 있을 수 있는데, 그 경우도 문제의 규칙대로 "이름순 첫 파일"이 답이다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl delete csidriver -l practice=f04 --ignore-not-found
-sudo rm -rf /opt/course/f04
-```
-
-</details>
 
 ## Task
 
@@ -90,6 +59,16 @@ uses. Write all answer files on `k8s-c1`; read the node-local files on `worker01
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q03](../q03_kubeadm_upgrade_worker/question.md) · [q05 →](../q05_priorityclass_derived_value/question.md)

@@ -7,46 +7,21 @@
 | Points | 7 |
 | Host | `ssh k8s-c1` |
 | Target time | 7 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 1) Ingress 컨트롤러: F5 NGINX Ingress Controller v5.6.3 (IngressClass nginx, Service 는 NodePort)
-#    은퇴한 ingress-nginx 가 아니라 nginx/kubernetes-ingress 다. 이미 설치돼 있으면 그대로 넘어간다.
-kubectl apply --server-side -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.6.3/deploy/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.6.3/deployments/common/ns-and-sa.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.6.3/deployments/rbac/rbac.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.6.3/deployments/common/nginx-config.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.6.3/deployments/common/ingress-class.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.6.3/deployments/deployment/nginx-ingress.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.6.3/deployments/service/nodeport.yaml
-kubectl -n nginx-ingress rollout status deploy nginx-ingress --timeout=180s
-
-# 2) namespace web 준비 — 없으면 만들고, 이전 실습에서 만든 이 문제의 리소스만 지운다
-kubectl create ns web --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n web delete ingress shop-ingress --ignore-not-found
-kubectl -n web delete svc site-svc api-svc --ignore-not-found
-kubectl -n web delete deploy site api --ignore-not-found --cascade=foreground --wait=true
-kubectl -n web delete pod img-check --ignore-not-found --wait=true
-
-# 3) 노드가 echoserver 이미지를 받을 수 있는지 미리 확인 (오프라인 실습 환경 대비)
-kubectl -n web run img-check --image=registry.k8s.io/e2e-test-images/echoserver:2.5 --restart=Never
-kubectl -n web wait --for=condition=Ready pod/img-check --timeout=120s || \
-  echo "echoserver 이미지를 받지 못함 — 레지스트리 접근을 먼저 확인할 것"
-kubectl -n web delete pod img-check --ignore-not-found --wait=true
-
-# 4) 시작 상태 확인: IngressClass 가 하나 있고, web 에는 site / api / shop-ingress 가 없음
-kubectl get ingressclass
-kubectl -n web get deploy,svc,ingress
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_a/q09_ingress_path_routing
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -67,28 +42,6 @@ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: shop.example.com' http://$NOD
 ```
 
 NGINX Ingress Controller 는 다른 Ingress 문제에서도 쓰므로 정리할 때 남겨 둔다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl -n web delete ingress shop-ingress --ignore-not-found
-kubectl -n web delete svc site-svc api-svc --ignore-not-found
-kubectl -n web delete deploy site api --ignore-not-found --cascade=foreground --wait=true
-kubectl -n web delete pod img-check --ignore-not-found --wait=true
-
-if kubectl get ns web >/dev/null 2>&1; then
-  left=$(kubectl -n web get deploy,sts,ds,job,cronjob,pod,svc,ingress,cm,secret,pvc -o name 2>/dev/null \
-    | grep -v '^configmap/kube-root-ca.crt$' || true)
-  if [ -z "$left" ]; then
-    kubectl delete ns web --ignore-not-found
-  else
-    echo "namespace web 에 다른 리소스가 남아 있어 namespace 는 지우지 않음:"
-    echo "$left"
-  fi
-fi
-```
-
-</details>
 
 ## Task
 
@@ -111,6 +64,16 @@ Two applications in namespace `web` must share one hostname.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q08](../q08_service_types_endpoints/question.md) · [q10 →](../q10_coredns_service_discovery/question.md)

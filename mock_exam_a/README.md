@@ -11,11 +11,11 @@
 
 문제는 영문(`question.md`), 풀이는 한글(`solution.md`)입니다. `solution.md` 맨 앞에 한글 해석이 있으니, 풀이를 보기 전에 영문을 제대로 읽었는지 먼저 대조하세요.
 
-각 문제는 메타 표의 `Host` 로 `ssh` 해서 풉니다. 실제 시험에서는 지정 호스트가 아닌 곳에서 작업하면 0점이고, 문제를 마치면 `exit` 로 베이스 터미널에 돌아온 뒤 다음 문제의 호스트로 들어갑니다.
+각 문제는 `## Setup` 의 `setup.sh` 로 상황을 만든 뒤, 메타 표의 `Host` 로 `ssh` 해서 풉니다. 실제 시험에서는 지정 호스트가 아닌 곳에서 작업하면 0점이고, 문제를 마치면 `exit` 로 베이스 터미널에 돌아온 뒤 다음 문제의 호스트로 들어갑니다.
 
 ## 문항
 
-`목표`는 배점에 비례해 배분한 **시간 예산**입니다 (일반 문항 배점×1분, Troubleshooting 배점×1.33분). 실제로 걸린 시간은 `실제` 칸과 각 `question.md` 의 `Actual time` 에 적으세요. 예산을 넘기는 문항이 어디인지가 다음 공부 주제입니다.
+`목표`는 배점에 비례해 배분한 **시간 예산**입니다 (일반 문항 배점×1분, Troubleshooting 배점×1.33분). 걸린 시간과 점수는 각 `question.md` 맨 아래 `## Record` 에만 적고 `python3 scripts/update_progress.py` 를 실행하세요. 이 표의 `실제`·`결과` 와 아래 도메인별 실점이 채워집니다. 예산을 넘기는 문항이 어디인지가 다음 공부 주제입니다.
 
 | # | 문제 | 도메인 | 배점 | 목표 | 실제 | 결과 | 링크 |
 |---|---|---|---|---|---|---|---|
@@ -36,7 +36,7 @@
 | 15 | A Service with no endpoints | Troubleshooting | 6 | 8분 |  | ☐ | [Q](q15_service_no_endpoints/question.md) · [S](q15_service_no_endpoints/solution.md) |
 | 16 | Read and evaluate container output streams | Troubleshooting | 6 | 8분 |  | ☐ | [Q](q16_container_log_streams/question.md) · [S](q16_container_log_streams/solution.md) |
 | 17 | Control plane down from a static pod manifest error | Troubleshooting | 5 | 7분 |  | ☐ | [Q](q17_static_pod_manifest_error/question.md) · [S](q17_static_pod_manifest_error/solution.md) |
-| | **합계** | | **100** | **110분** |  | | |
+|  | **합계** |  | **100** | **110분** |  |  |  |
 
 ## 도메인별 실점
 

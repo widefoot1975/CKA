@@ -129,8 +129,6 @@ apt-mark showhold                          # (worker01) kubeadm, kubectl, kubele
 - https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes/
 - https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q04 →](../q04_extension_interfaces_inventory/question.md)

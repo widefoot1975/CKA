@@ -118,8 +118,6 @@ kubectl -n cfg exec settings-demo -- cat /etc/settings/COLOR  # blue
 - https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
 - https://kubernetes.io/docs/concepts/configuration/configmap/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q07 →](../q07_taint_toleration_dedicated_node/question.md)

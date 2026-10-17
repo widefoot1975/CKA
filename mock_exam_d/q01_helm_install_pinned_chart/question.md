@@ -7,36 +7,21 @@
 | Points | 7 |
 | Host | `ssh k8s-c1` |
 | Target time | 7 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) helm 이 설치되어 있는지 확인 (없으면 여기서 멈춘다)
-helm version --short
-
-# 1) 이전 실습 흔적 정리: 릴리스, 네임스페이스, 저장소, 결과 파일
-if helm status podinfo -n demo >/dev/null 2>&1; then
-  helm uninstall podinfo -n demo --wait
-fi
-kubectl delete ns demo --ignore-not-found --wait=true
-helm repo remove podinfo >/dev/null 2>&1 || true
-rm -rf /opt/course/d01
-
-# 2) 결과 파일 디렉터리
-mkdir -p /opt/course/d01
-
-# 3) 시작 상태 확인: 저장소·네임스페이스·릴리스가 모두 없어야 한다
-helm repo list 2>/dev/null | grep podinfo || echo "podinfo 저장소 없음 (정상)"
-kubectl get ns demo 2>/dev/null || echo "namespace demo 없음 (정상)"
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_d/q01_helm_install_pinned_chart
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -45,19 +30,6 @@ bash cleanup.sh    # 실습 후 정리
 
 설정 직후 `podinfo` 차트 저장소, namespace `demo`, 릴리스 `podinfo` 는 모두 없고 `/opt/course/d01/` 는 비어 있다. 저장소 추가부터 문제에서 직접 한다.
 차트를 받아야 하므로 `k8s-c1` 에서 `stefanprodan.github.io` 와 `ghcr.io` 로 인터넷 연결이 되어야 한다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-if helm status podinfo -n demo >/dev/null 2>&1; then
-  helm uninstall podinfo -n demo --wait
-fi
-kubectl delete ns demo --ignore-not-found
-helm repo remove podinfo >/dev/null 2>&1 || true
-rm -rf /opt/course/d01
-```
-
-</details>
 
 ## Task
 
@@ -80,6 +52,16 @@ pinned so that every later change uses exactly the same chart.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [q02 →](../q02_rbac_pod_reader_serviceaccount/question.md)

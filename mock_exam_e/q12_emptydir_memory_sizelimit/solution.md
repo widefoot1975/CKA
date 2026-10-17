@@ -116,8 +116,6 @@ kubectl -n tmp exec cache-pod -c consumer -- grep /cache /proc/mounts
 - https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
 - https://kubernetes.io/docs/tasks/access-application-cluster/communicate-containers-same-pod-shared-volume/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q13 →](../q13_apiserver_wrong_etcd_endpoint/question.md)

@@ -191,8 +191,6 @@ journalctl -u kubelet --since '-2min' | grep -c 'failed to find plugin'    # 0
 - https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/
 - https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q16 →](../q16_control_plane_component_down/question.md)

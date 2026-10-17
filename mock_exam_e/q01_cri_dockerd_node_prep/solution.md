@@ -130,8 +130,6 @@ crictl --runtime-endpoint unix:///var/run/cri-dockerd.sock info | grep -A1 '"Run
 - https://kubernetes.io/docs/setup/production-environment/container-runtimes/
 - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q02 →](../q02_kustomize_overlay_basic/question.md)

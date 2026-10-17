@@ -7,33 +7,21 @@
 | Points | 7 |
 | Host | `ssh k8s-c1` → `ssh worker01`, then `sudo -i` |
 | Target time | 9 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-이 문제는 **클러스터를 일부러 고장 낸 상태에서** 시작한다. `worker01` 에서 root 로 아래 둘 중 하나를 실행한다. 여러 번 실행해도 안전하다. 실습이 끝나면 반드시 정리(cleanup)해서 클러스터를 원래대로 돌려놓는다.
+이 문제는 **클러스터를 일부러 고장 낸 상태에서** 시작한다. `worker01` 에서 root 로 아래 스크립트를 실행한다. 여러 번 실행해도 안전하다. 실습이 끝나면 반드시 정리(cleanup)해서 클러스터를 원래대로 돌려놓는다.
 
-**방법 A — 명령어를 복사해서 붙여 넣기** (`ssh worker01` → `sudo -i` 한 뒤)
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
 
-<details><summary>명령어 펼치기 — 고장 내는 내용이 보이니 풀기 전에는 읽지 않는 것을 권장</summary>
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 1) 이전 실습 흔적 정리
-rm -rf /opt/course/d13
-mkdir -p /opt/course/d13
-
-# 2) 고장 내기: kubelet 을 멈추고(stop) 부팅 때 자동 시작도 끈다(disable)
-systemctl disable --now kubelet
-
-# 3) 시작 상태 확인: inactive / disabled. 약 1분 뒤 k8s-c1 에서 worker01 이 NotReady 로 바뀐다
-systemctl is-active kubelet || true
-systemctl is-enabled kubelet || true
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_d/q13_node_kubelet_stopped
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
 </details>
-
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
 
 ```bash
 # k8s-c1 에서 (스크립트를 worker01 로 보내 root 로 실행)
@@ -54,17 +42,6 @@ kubelet 을 멈추고(`stop`) 부팅 시 자동 시작도 끈다(`disable`). `cl
 
 </details>
 
-<details><summary>정리 명령 (방법 A, worker01 에서 root 로)</summary>
-
-```bash
-systemctl enable --now kubelet
-rm -rf /opt/course/d13
-systemctl is-active kubelet
-systemctl is-enabled kubelet
-```
-
-</details>
-
 ## Task
 
 Node `worker01` reports `NotReady`. The cause is on the node itself.
@@ -81,6 +58,16 @@ Node `worker01` reports `NotReady`. The cause is on the node itself.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q12](../q12_pvc_pod_mount/question.md) · [q14 →](../q14_scheduler_static_pod_image/question.md)

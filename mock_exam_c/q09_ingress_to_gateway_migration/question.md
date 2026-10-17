@@ -7,52 +7,21 @@
 | Points | 6 |
 | Host | `ssh k8s-c1` |
 | Target time | 6 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 1) Gateway API CRD + NGINX Gateway Fabric (GatewayClass nginx, 데이터 플레인은 NodePort)
-kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
-kubectl apply --server-side -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/v2.7.2/deploy/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/v2.7.2/deploy/nodeport/deploy.yaml
-kubectl -n nginx-gateway rollout status deploy nginx-gateway --timeout=180s
-
-# 2) 이전 실습 흔적 정리 후 namespace secure + 답안 디렉터리
-kubectl delete ns secure --ignore-not-found --wait=true
-rm -rf /opt/course/q09
-mkdir -p /opt/course/q09
-kubectl create ns secure
-
-# 3) 백엔드: Deployment portal (nginx:1.27, 3 레플리카) + Service portal:80
-kubectl -n secure create deploy portal --image=nginx:1.27 --replicas=3 --port=80
-kubectl -n secure expose deploy portal --port=80
-
-# 4) TLS Secret portal-tls (자체 서명, CN·SAN = portal.example.com)
-TMP=$(mktemp -d)
-openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
-  -keyout "$TMP/tls.key" -out "$TMP/tls.crt" \
-  -subj "/CN=portal.example.com" -addext "subjectAltName=DNS:portal.example.com"
-kubectl -n secure create secret tls portal-tls --cert="$TMP/tls.crt" --key="$TMP/tls.key"
-rm -rf "$TMP"
-
-# 5) 옮길 대상 Ingress portal-ing (IngressClass nginx, portal.example.com TLS 종료, / → portal:80)
-kubectl -n secure create ingress portal-ing --class=nginx \
-  --rule='portal.example.com/*=portal:80,tls=portal-tls'
-
-kubectl -n secure rollout status deploy portal
-
-# 6) 시작 상태 확인: GatewayClass nginx ACCEPTED True, secure 에는 Ingress 만 있고 Gateway·HTTPRoute 없음
-kubectl get gatewayclass nginx
-kubectl -n secure get deploy,svc,secret,ingress,gateway,httproute
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_c/q09_ingress_to_gateway_migration
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -65,15 +34,6 @@ bash cleanup.sh    # 실습 후 정리
 NGINX Gateway Fabric 은 `secure` 안에 데이터 플레인 Service(`portal-gw-nginx`, NodePort)를 만든다.
 LoadBalancer 가 없는 실습 클러스터라 Gateway 주소로 curl 이 닿지 않으면 `--resolve portal.example.com:<NodePort>:<노드IP>` 로 확인한다.
 NGINX Gateway Fabric 은 다른 Gateway 문제에서도 쓰므로 정리할 때 `secure` 와 `/opt/course/q09` 만 지운다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl delete ns secure --ignore-not-found
-rm -rf /opt/course/q09
-```
-
-</details>
 
 ## Task
 
@@ -103,6 +63,16 @@ controller has been retired, so the site must move to the Gateway API. GatewayCl
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q08](../q08_httproute_traffic_split/question.md) · [q10 →](../q10_headless_service_statefulset_dns/question.md)

@@ -127,8 +127,6 @@ cat /opt/course/f09/choice.txt              # policy-b.yaml
 - 검색어: `network policies`
 - https://kubernetes.io/docs/concepts/services-networking/network-policies/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q10 →](../q10_coredns_hosts_entry/question.md)

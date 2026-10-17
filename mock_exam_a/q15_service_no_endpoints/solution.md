@@ -150,8 +150,6 @@ kubectl -n shop run tmp --rm -i --image=busybox:1.36 --restart=Never -- \
 - 검색어: `debug service`
 - https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q16 →](../q16_container_log_streams/question.md)

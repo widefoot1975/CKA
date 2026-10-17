@@ -7,8 +7,6 @@
 | Points | 7 |
 | Host | `ssh k8s-c3` → `ssh cp01`, then `sudo -i` |
 | Target time | 7 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
@@ -20,33 +18,16 @@
 두 노드에서 차례로 root(`sudo -i`)로 실행한다. `cp03` 을 실제로 지우는 단계이므로 **VM 스냅샷을 먼저 찍어 두기를
 권한다.** 정리 스크립트로 `cp03` 을 다시 join 시켜 3대로 되돌릴 수 있다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 1) cp01 에서 root 로 — 컨트롤 플레인 3대인지, etcdctl 이 있는지 확인하고 답 디렉터리 준비
-sudo -i
-export KUBECONFIG=/etc/kubernetes/admin.conf
-kubectl get nodes -l node-role.kubernetes.io/control-plane     # 3대여야 한다
-etcdctl version                                                 # 없으면 E04 Setup 의 2) 로 설치
-rm -rf /opt/q01 && mkdir -p /opt/q01
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_b/q01_ha_control_plane
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-```bash
-# 2) cp03 에서 root 로 — etcd 멤버 제거 단계만 빼고 reset (= reset 없이 재설치한 것과 같은 상태)
-sudo -i
-kubeadm reset -f --skip-phases=remove-etcd-member
-rm -rf /etc/cni/net.d/* ~/.kube
-```
-
-```bash
-# 3) cp01 에서 — 시작 상태 확인
-export ETCDCTL_ENDPOINTS=https://127.0.0.1:2379 ETCDCTL_CACERT=/etc/kubernetes/pki/etcd/ca.crt \
-       ETCDCTL_CERT=/etc/kubernetes/pki/etcd/server.crt ETCDCTL_KEY=/etc/kubernetes/pki/etcd/server.key
-etcdctl member list -w table                # cp03 이 아직 등록되어 있다
-kubectl get nodes                           # cp03 은 잠시 뒤 NotReady
-```
-
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 sudo bash setup.sh prepare    # cp01 에서 — 점검, etcdctl 설치(없을 때), 답 디렉터리
@@ -59,24 +40,6 @@ sudo bash cleanup.sh          # cp01 에서 — 실습 후, cp03 을 다시 넣�
 `cp03` 의 kubeadm·kubelet 패키지는 그대로 남으므로, 풀이에서 만든 `join.sh` 를 그 자리에서 바로 실행할 수 있다.
 컨트롤 플레인이 3대보다 적으면 `setup.sh prepare` 가 멈춘다. 그런 실습 클러스터에서는 1)·3)·4) 의 명령만 따로
 연습하고, 멤버 제거(2)는 하지 않는다. 멤버가 하나뿐인 etcd 에서 그 멤버를 지우면 클러스터가 멈춘다.
-
-<details><summary>정리 명령 (방법 A) — cp03 을 다시 컨트롤 플레인으로 넣기</summary>
-
-```bash
-# cp01 에서 — 문제를 끝까지 풀었다면 첫 두 줄은 이미 되어 있다
-etcdctl member remove <cp03 의 멤버 ID>
-kubectl delete node cp03 --ignore-not-found
-kubeadm token create --print-join-command \
-  --certificate-key $(kubeadm init phase upload-certs --upload-certs | tail -1)
-rm -rf /opt/q01
-```
-
-```bash
-# cp03 에서 root 로 — 위에서 나온 join 명령을 그대로 붙여 넣는다 (--control-plane --certificate-key 포함)
-kubeadm join <LB>:6443 --token ... --discovery-token-ca-cert-hash sha256:... --control-plane --certificate-key ...
-```
-
-</details>
 
 ## Task
 
@@ -104,6 +67,16 @@ registered. The rebuilt `cp03` must come back.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [q02 →](../q02_node_prerequisites_containerd/question.md)

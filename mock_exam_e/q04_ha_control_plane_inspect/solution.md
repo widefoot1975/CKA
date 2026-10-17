@@ -134,8 +134,6 @@ kubectl -n kube-system get pods -l component=etcd -o wide   # etcd-cp01/02/03 Ru
 - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/
 - https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q05 →](../q05_hpa_behavior/question.md)

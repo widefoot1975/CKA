@@ -178,8 +178,6 @@ crictl logs --tail 5 $(crictl ps -q --pod $(crictl pods -q --namespace logs --na
 - 검색어: `logging architecture`
 - https://kubernetes.io/docs/concepts/cluster-administration/logging/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q17 →](../q17_static_pod_manifest_error/question.md)

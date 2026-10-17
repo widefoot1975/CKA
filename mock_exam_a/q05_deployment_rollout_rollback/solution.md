@@ -136,8 +136,6 @@ kubectl -n apps get rs                          # 현재 리비전만 DESIRED 4,
 - 검색어: `rolling back a deployment`
 - https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q06 →](../q06_configmap_secret_injection/question.md)

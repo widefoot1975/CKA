@@ -217,8 +217,6 @@ kubectl -n prod get pod cache-warm \
 - https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/
 - https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q15 →](../q15_multicontainer_sidecar_logs/question.md)

@@ -194,8 +194,6 @@ kubectl -n kube-system get secret kubeadm-certs   # upload-certs 직후에만 �
 - https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/
 - https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q02 →](../q02_node_prerequisites_containerd/question.md)

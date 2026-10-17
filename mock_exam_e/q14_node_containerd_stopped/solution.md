@@ -115,8 +115,6 @@ kubectl get pods -A -o wide --field-selector spec.nodeName=worker02   # 이 노�
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/
 - https://kubernetes.io/docs/setup/production-environment/container-runtimes/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q15 →](../q15_crashloop_wrong_command/question.md)

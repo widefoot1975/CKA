@@ -185,8 +185,6 @@ kubectl get svc -n alpha web -o jsonpath='{.spec.clusterIP}'
 - 검색어: `dns for services and pods`
 - https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q11 →](../q11_pv_pvc_static_provisioning/question.md)

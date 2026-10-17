@@ -218,8 +218,6 @@ kubectl -n obs logs tailer -c logship --tail=5   # GET / HTTP/1.1" 200
 - https://kubernetes.io/docs/concepts/cluster-administration/logging/
 - https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q16 →](../q16_node_disk_pressure_eviction/question.md)

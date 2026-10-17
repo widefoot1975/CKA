@@ -156,8 +156,6 @@ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: other.example.com' http://$GW
 - https://kubernetes.io/docs/concepts/services-networking/gateway/
 - https://gateway-api.sigs.k8s.io/guides/http-routing/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q09 →](../q09_nodeport_expose_container_port/question.md)

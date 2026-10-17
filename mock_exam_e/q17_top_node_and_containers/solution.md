@@ -124,8 +124,6 @@ kubectl -n monitoring top pod --sort-by=memory | sed -n 2p   # pod.txt 와 같�
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/
 - https://kubernetes.io/docs/reference/kubectl/generated/kubectl_top/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md)

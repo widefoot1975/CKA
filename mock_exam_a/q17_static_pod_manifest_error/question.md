@@ -7,38 +7,21 @@
 | Points | 5 |
 | Host | `ssh k8s-c1` → `ssh cp01`, then `sudo -i` (kubectl will not answer) |
 | Target time | 7 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-이 문제는 **클러스터를 일부러 고장 낸 상태에서** 시작한다. `cp01` 에서 root 로 아래 둘 중 하나를 실행한다. 여러 번 실행해도 안전하다. 실습이 끝나면 반드시 정리(cleanup)해서 클러스터를 원래대로 돌려놓는다.
+이 문제는 **클러스터를 일부러 고장 낸 상태에서** 시작한다. `cp01` 에서 root 로 아래 스크립트를 실행한다. 여러 번 실행해도 안전하다. 실습이 끝나면 반드시 정리(cleanup)해서 클러스터를 원래대로 돌려놓는다.
 
-**방법 A — 명령어를 복사해서 붙여 넣기** (`ssh cp01` → `sudo -i` 한 뒤)
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
 
-<details><summary>명령어 펼치기 — 고장 내는 내용이 보이니 풀기 전에는 읽지 않는 것을 권장</summary>
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-MAN=/etc/kubernetes/manifests
-KEEP=/root/.cka-setup          # 원본 매니페스트 보관 위치 (반드시 매니페스트 디렉터리 밖)
-
-# 0) 이전 실습 흔적 정리: 보관해 둔 원본이 있으면 먼저 되돌린다 (E13 등 다른 문제가 남긴 것 포함)
-mkdir -p $KEEP
-[ ! -f $KEEP/kube-apiserver.yaml ] || cp $KEEP/kube-apiserver.yaml $MAN/kube-apiserver.yaml
-
-# 1) 원본 확인 후 보관
-cp $MAN/kube-apiserver.yaml $KEEP/kube-apiserver.yaml
-
-# 2) 고장 내기 ("동료의 수정"): 플래그 이름에 s 를 하나 더 붙인다 → kube-apiserver 가 시작하자마자 종료
-sed -i 's#- --authorization-mode=#- --authorization-modes=#' $MAN/kube-apiserver.yaml
-
-# 3) 시작 상태 확인: 1분쯤 뒤 kubectl 은 connection refused, crictl ps -a 에 Exited kube-apiserver
-grep -n -- '--authorization-mode' $MAN/kube-apiserver.yaml
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_a/q17_static_pod_manifest_error
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
 </details>
-
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
 
 ```bash
 # k8s-c1 에서 (스크립트를 cp01 로 보내 root 로 실행)
@@ -57,33 +40,6 @@ sudo bash cleanup.sh
 
 kube-apiserver 매니페스트의 플래그 `--authorization-mode` 를 `--authorization-modes` 로 바꾼다("동료의 수정"). 컨테이너는 시작하자마자 종료되고 kubelet 이 계속 다시 띄운다.
 고장 내기 전에 원본을 `/root/.cka-setup/kube-apiserver.yaml` 에 보관한다. `cleanup.sh` 는 원본으로 되돌리고, 매니페스트 디렉터리 안에 남은 `kube-apiserver` 백업 파일을 밖으로 옮긴 뒤 API 서버가 다시 응답할 때까지 기다린다. E13 도 같은 파일을 쓰지만, 두 setup 모두 먼저 원본으로 되돌린 뒤 고장 내므로 어느 순서로 해도 안전하다.
-
-</details>
-
-<details><summary>정리 명령 (방법 A, cp01 에서 root 로)</summary>
-
-```bash
-export KUBECONFIG=/etc/kubernetes/admin.conf
-MAN=/etc/kubernetes/manifests
-KEEP=/root/.cka-setup
-mkdir -p $KEEP
-
-# 1) setup.sh 가 보관한 원본으로 되돌린다
-if [ -f $KEEP/kube-apiserver.yaml ]; then
-  cp $KEEP/kube-apiserver.yaml $MAN/kube-apiserver.yaml
-  rm $KEEP/kube-apiserver.yaml
-fi
-
-# 2) 매니페스트 디렉터리 안에 남은 백업(.bak 등)은 kubelet 이 파드로 읽으므로 밖으로 옮긴다
-for f in $MAN/*kube-apiserver*; do
-  [ "$f" = $MAN/kube-apiserver.yaml ] || mv -v "$f" $KEEP/
-done
-
-# 3) API 서버가 다시 응답할 때까지 기다린다 (최대 3분)
-for _ in $(seq 60); do kubectl get --raw /healthz >/dev/null 2>&1 && break; sleep 3; done
-kubectl get --raw /healthz; echo
-kubectl get nodes
-```
 
 </details>
 
@@ -107,6 +63,16 @@ edited a control plane manifest shortly before.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q16](../q16_container_log_streams/question.md)

@@ -225,8 +225,6 @@ crictl images | wc -l                               # 줄어들었다
 - https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
 - https://kubernetes.io/docs/reference/node/node-status/#condition
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q17 →](../q17_kubeproxy_service_networking/question.md)

@@ -110,8 +110,6 @@ kubectl get nodes                          # worker02   Ready  (수십 초 걸�
 - https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q14 →](../q14_kubeconfig_wrong_port/question.md)

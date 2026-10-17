@@ -162,8 +162,6 @@ kubectl -n shop run dns --rm -it --image=busybox:1.36 --restart=Never -- nslooku
 - 검색어: `service publishing services service types`
 - https://kubernetes.io/docs/concepts/services-networking/service/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q09 →](../q09_ingress_path_routing/question.md)

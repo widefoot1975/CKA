@@ -136,8 +136,6 @@ kubectl -n kube-system get pod kube-apiserver-cp01 \
 - 검색어: `create static pod`
 - https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md)

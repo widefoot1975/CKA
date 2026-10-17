@@ -143,8 +143,6 @@ ADDRESS가 비어 있으면 컨트롤러 Service의 NodePort로 보냅니다(`ku
 - https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/
 - https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q10 →](../q10_service_named_targetport/question.md)

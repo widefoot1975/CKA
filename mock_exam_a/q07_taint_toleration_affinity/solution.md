@@ -187,8 +187,6 @@ kubectl describe pod batch-runner | tail -5
 - 검색어: `taints and tolerations`
 - https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q08 →](../q08_service_types_endpoints/question.md)

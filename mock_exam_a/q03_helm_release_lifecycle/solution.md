@@ -172,8 +172,6 @@ CKA 시험 중에는 kubernetes.io 문서와 함께 **helm.sh/docs** 도 열람�
 - https://helm.sh/docs/helm/helm_upgrade/
 - https://cert-manager.io/docs/installation/helm/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q04 →](../q04_kubeconfig_certificate_management/question.md)

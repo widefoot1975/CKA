@@ -208,8 +208,6 @@ curl -s --max-time 3 http://$W1:$NP | head -4                                  #
 - https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/
 - https://kubernetes.io/docs/reference/networking/virtual-ips/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md)

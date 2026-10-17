@@ -137,8 +137,6 @@ kubectl -n wp get pods -o jsonpath='{range .items[*]}{.metadata.name}{"  "}{.sta
 - https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 - https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q07 →](../q07_native_sidecar_log_shipper/question.md)

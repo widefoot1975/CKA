@@ -120,8 +120,6 @@ kubectl describe pod plain | grep -A3 Events
 - https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 - https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q08 →](../q08_gateway_httproute_basic/question.md)

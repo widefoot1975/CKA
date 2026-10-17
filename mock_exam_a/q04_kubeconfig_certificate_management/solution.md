@@ -163,8 +163,6 @@ kubectl config current-context --kubeconfig=/root/jane.kubeconfig   # jane@k8s-c
 - 검색어: `certificate signing requests`
 - https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q05 →](../q05_deployment_rollout_rollback/question.md)

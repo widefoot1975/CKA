@@ -101,8 +101,6 @@ kubectl -n shop rollout history deploy/web
 - https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-a-deployment
 - https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#scaling-a-deployment
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q06 →](../q06_configmap_env_and_volume/question.md)

@@ -167,8 +167,6 @@ cat /opt/q02/cgroup.txt          # systemd
 - https://kubernetes.io/docs/setup/production-environment/container-runtimes/
 - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q03 →](../q03_crd_custom_resource/question.md)

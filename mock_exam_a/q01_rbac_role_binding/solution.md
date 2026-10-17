@@ -124,8 +124,6 @@ update할 수 있나"를 묻게 되고, `deployments` 에 `update` 가 있으니
 - 검색어: `RBAC`
 - https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q02 →](../q02_kubeadm_cluster_upgrade/question.md)

@@ -7,42 +7,23 @@
 | Points | 6 |
 | Host | `ssh k8s-c3` → `ssh cp01`, then `sudo -i` |
 | Target time | 6 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
 정보를 모으기만 하는 문제라 만들 리소스는 없다. 답 디렉터리를 비우고, 호스트에 `etcdctl` 이 없으면 etcd
 파드와 같은 버전으로 설치하고, 클러스터가 어떤 모양인지 확인한다.
-`cp01` 에서 root(`sudo -i`)로 아래 둘 중 하나를 실행한다. 여러 번 실행해도 안전하다.
+`cp01` 에서 root(`sudo -i`)로 아래 스크립트를 실행한다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) cp01 에서 root 로
-sudo -i
-export KUBECONFIG=/etc/kubernetes/admin.conf
-
-# 1) 이전 실습 흔적 정리
-rm -rf /opt/course/e04
-mkdir -p /opt/course/e04
-
-# 2) etcdctl — 없으면 etcd 파드 이미지와 같은 버전을 설치 (예: registry.k8s.io/etcd:3.6.5-0 → 3.6.5)
-command -v etcdctl || {
-  VER=$(kubectl -n kube-system get pod -l component=etcd -o jsonpath='{.items[0].spec.containers[0].image}' \
-        | sed -E 's/.*:v?([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-  ARCH=$(dpkg --print-architecture)
-  curl -fsSL https://github.com/etcd-io/etcd/releases/download/v$VER/etcd-v$VER-linux-$ARCH.tar.gz \
-    | tar -xz -C /usr/local/bin --strip-components=1 etcd-v$VER-linux-$ARCH/etcdctl
-}
-etcdctl version
-
-# 3) 클러스터 모양 확인 — 컨트롤 플레인 노드 수, etcd 파드
-kubectl get nodes -l node-role.kubernetes.io/control-plane
-kubectl -n kube-system get pods -l component=etcd -o wide
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_e/q04_ha_control_plane_inspect
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 sudo bash setup.sh      # 환경 만들기
@@ -55,14 +36,6 @@ sudo bash cleanup.sh    # 실습 후 정리
 `kubeadm init` 때 `--control-plane-endpoint` 를 주지 않았다면 `kubeadm-config` 에 `controlPlaneEndpoint` 줄이
 아예 없다. 그때는 `endpoint.txt` 가 빈 파일인 것이 맞는 답이고, 스크립트가 그 사실을 알려 준다.
 설치한 `etcdctl` 은 B01 같은 다른 etcd 문제에서도 쓰므로 정리할 때 남겨 둔다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-rm -rf /opt/course/e04
-```
-
-</details>
 
 ## Task
 
@@ -82,6 +55,16 @@ node) with three control plane nodes. Nothing is broken; you only need to collec
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q03](../q03_crd_install_custom_resource/question.md) · [q05 →](../q05_hpa_behavior/question.md)

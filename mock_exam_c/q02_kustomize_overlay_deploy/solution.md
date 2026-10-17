@@ -171,8 +171,6 @@ kubectl kustomize /opt/course/q02/overlays/prod | grep -c 'env: prod'   # 3
 - 검색어: `kustomize declarative management`
 - https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q03 →](../q03_cni_install_networkpolicy/question.md)

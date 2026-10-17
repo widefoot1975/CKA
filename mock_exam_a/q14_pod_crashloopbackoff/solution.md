@@ -167,8 +167,6 @@ kubectl -n dev logs broken-app --tail=5                          # cache loaded,
 - 검색어: `debug running pods`
 - https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q15 →](../q15_service_no_endpoints/question.md)

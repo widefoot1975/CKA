@@ -164,8 +164,6 @@ curl -s -H 'Host: blog.example.com' http://$GW/api         # 여전히 blog-api
 - https://gateway-api.sigs.k8s.io/guides/migrating-from-ingress/
 - https://gateway-api.sigs.k8s.io/api-types/httproute/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q09 →](../q09_networkpolicy_least_permissive/question.md)

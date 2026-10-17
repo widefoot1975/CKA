@@ -72,8 +72,6 @@ kubectl get pod -n batch "$(cat /opt/course/d17/pod.txt)"    # 실제로 존재�
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md)

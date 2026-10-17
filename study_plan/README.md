@@ -36,6 +36,6 @@
 ## 매일 끝낼 때 기록할 것
 
 1. 푼 문제의 `question.md` → `## My attempt` 에 입력한 명령 (틀린 것도 그대로)
-2. 회차 `README.md` 의 `실제` 시간과 `결과` 칸
+2. 같은 `question.md` 맨 아래 `## Record` 에 날짜·걸린 분·점수 한 줄, 그리고 `python3 scripts/update_progress.py` 실행
 3. 틀린 문제는 `solution.md` 의 `## 오답 원인 / 배운 점`
 4. 같은 주제를 두 번 틀리면 저장소 루트 [README.md](../README.md) 의 **반복 오답 목록**에 추가 — 10일차에 이 표를 다시 봅니다.

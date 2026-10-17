@@ -129,8 +129,6 @@ busybox 의 `nslookup` 은 점(`.`)이 들어간 이름에는 search 도메인�
 - https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/
 - https://coredns.io/plugins/hosts/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q11 →](../q11_pv_reclaim_policy_patch/question.md)

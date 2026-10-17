@@ -133,8 +133,6 @@ kubectl -n data exec writer -- cat /data/out.txt
 - https://kubernetes.io/docs/concepts/storage/persistent-volumes/
 - https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q13 →](../q13_node_kubelet_stopped/question.md)

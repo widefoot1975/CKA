@@ -114,8 +114,6 @@ head -2 /opt/course/f16/transform-errors.log
 - https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/
 - https://kubernetes.io/docs/concepts/cluster-administration/logging/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q17 →](../q17_resize_pod_in_place/question.md)

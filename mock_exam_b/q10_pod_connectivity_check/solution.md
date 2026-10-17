@@ -189,8 +189,6 @@ kubectl -n beta get pod probe        # Running, RESTARTS 0
 - https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 - https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q11 →](../q11_storageclass_dynamic_expand/question.md)

@@ -139,8 +139,6 @@ kubectl -n finance exec deploy/ledger -- ls /var/lib/ledger    # 예전 파일�
 - https://kubernetes.io/docs/concepts/storage/persistent-volumes/
 - https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q12 →](../q12_emptydir_memory_sizelimit/question.md)

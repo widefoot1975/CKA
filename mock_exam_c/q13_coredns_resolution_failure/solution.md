@@ -208,8 +208,6 @@ cat /opt/course/q13/cause.txt
 - https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
 - https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q14 →](../q14_oomkilled_resource_analysis/question.md)

@@ -120,8 +120,6 @@ cat /opt/course/e15/exitcode.txt            # 127
 - https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/
 - https://kubernetes.io/docs/tasks/debug/debug-application/determine-reason-pod-failure/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q16 →](../q16_coredns_scaled_to_zero/question.md)

@@ -7,98 +7,21 @@
 | Points | 6 |
 | Host | `ssh k8s-c1` → `ssh <node running the pod>` for step 5 |
 | Target time | 8 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리 — namespace logs 는 d16 도 쓰므로 namespace 는 지우지 않고 Deployment multi 만 지운다
-kubectl -n logs delete deploy multi --ignore-not-found --wait=true
-kubectl -n logs wait --for=delete pod -l app=multi --timeout=90s 2>/dev/null || true
-
-# 1) namespace (없으면 만든다) + Deployment multi
-#    - app: 첫 실행은 FATAL(stderr) 을 남기고 exit 1 → 한 번 재시작한 뒤에는 30줄을 찍고 3초마다 INFO(stdout)/WARN(stderr) 를 남긴다
-#           같은 줄을 공유 emptyDir 의 /var/log/app/out.log 에도 쓴다 (첫 실행 여부는 emptyDir 의 표식 파일로 구분)
-#    - shipper: 일반 컨테이너(두 번째), out.log 를 tail 해서 "forwarded:" 를 붙여 다시 출력한다
-kubectl create ns logs --dry-run=client -o yaml | kubectl apply -f -
-cat <<'EOF' | kubectl apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: multi
-  namespace: logs
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: multi
-  template:
-    metadata:
-      labels:
-        app: multi
-    spec:
-      containers:
-      - name: app
-        image: busybox:1.36
-        command:
-        - sh
-        - -c
-        - |
-          log() { echo "$(date -u +%FT%TZ) $1 $HOSTNAME $2" | tee -a /var/log/app/out.log; }
-          if [ ! -f /state/started ]; then
-            touch /state/started
-            log INFO "app starting (first run)"
-            log FATAL "config reload failed, exiting" >&2
-            sleep 3
-            exit 1
-          fi
-          log INFO "app restarted, warming up"
-          for i in $(seq 1 30); do log INFO "warm-up line $i"; done
-          i=0
-          while true; do
-            i=$((i+1))
-            if [ $((i % 5)) -eq 0 ]; then log WARN "slow request id=$i" >&2
-            else log INFO "request id=$i served"; fi
-            sleep 3
-          done
-        volumeMounts:
-        - name: applog
-          mountPath: /var/log/app
-        - name: state
-          mountPath: /state
-      - name: shipper
-        image: busybox:1.36
-        command: ["sh", "-c", "touch /var/log/app/out.log; tail -n 0 -F /var/log/app/out.log | while read -r l; do echo \"forwarded: $l\"; done"]
-        volumeMounts:
-        - name: applog
-          mountPath: /var/log/app
-      volumes:
-      - name: applog
-        emptyDir: {}
-      - name: state
-        emptyDir: {}
-EOF
-
-# 2) 파드 3개의 app 이 모두 한 번씩 재시작하고 Ready 가 될 때까지 기다린다
-for i in $(seq 1 60); do
-  N=$(kubectl -n logs get pod -l app=multi \
-        -o jsonpath='{range .items[*]}{.status.containerStatuses[?(@.name=="app")].restartCount}{"\n"}{end}' 2>/dev/null \
-      | awk '$1 >= 1' | wc -l)
-  [ "$N" -ge 3 ] && break
-  sleep 3
-done
-kubectl -n logs wait pod -l app=multi --for=condition=Ready --timeout=120s
-
-# 3) 설정 확인: 파드 3개 모두 READY 2/2, RESTARTS 1 — 5단계에서 들어갈 노드는 NODE 열에서 고른다
-kubectl -n logs get pod -l app=multi -o wide
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_a/q16_container_log_streams
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -112,16 +35,6 @@ bash cleanup.sh    # 실습 후 정리
 
 namespace `logs` 는 `mock_exam_d/q16` 도 쓴다. 이 setup/cleanup 은 Deployment `multi` 만 다루고,
 cleanup 은 namespace 에 다른 리소스가 남아 있으면 namespace 를 지우지 않는다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl -n logs delete deploy multi --ignore-not-found --wait=true
-# namespace logs 에 다른 실습(d16 의 order-api 등)이 없을 때만:
-kubectl delete ns logs --ignore-not-found
-```
-
-</details>
 
 ## Task
 
@@ -144,6 +57,16 @@ Deployment `multi` in `logs` runs 3 replicas of containers `app` and `shipper`.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q15](../q15_service_no_endpoints/question.md) · [q17 →](../q17_static_pod_manifest_error/question.md)

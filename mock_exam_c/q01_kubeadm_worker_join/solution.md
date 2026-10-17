@@ -167,8 +167,6 @@ kubeadm token list                  # 새 토큰이 24h TTL로 보인다
 - 검색어: `kubeadm join`
 - https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-join/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q02 →](../q02_kustomize_overlay_deploy/question.md)

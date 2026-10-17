@@ -132,8 +132,6 @@ kubectl get csinodes -o custom-columns='NODE:.metadata.name,DRIVERS:.spec.driver
 - https://kubernetes.io/docs/concepts/storage/volumes/#csi
 - https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q05 →](../q05_priorityclass_derived_value/question.md)

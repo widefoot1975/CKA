@@ -216,8 +216,6 @@ kubectl logs -n kube-system <worker02의 파드>   # kubelet 10250 도 응답하
 - https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/
 - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/troubleshooting-kubeadm/ (Kubelet client certificate rotation fails)
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md)

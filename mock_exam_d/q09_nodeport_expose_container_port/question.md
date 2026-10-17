@@ -7,34 +7,21 @@
 | Points | 7 |
 | Host | `ssh k8s-c1` |
 | Target time | 7 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리
-kubectl delete ns spline --ignore-not-found --wait=true
-kubectl create ns spline
-
-# 1) Deployment front-end: nginx:1.27, 컨테이너 이름 nginx, ports 선언 없음 (--port 를 주지 않는다)
-kubectl -n spline create deploy front-end --image=nginx:1.27 --replicas=2
-kubectl -n spline rollout status deploy front-end --timeout=120s
-
-# 2) nodePort 30080 을 다른 Service 가 쓰고 있지 않은지 확인 (쓰고 있으면 문제 2단계가 실패한다)
-kubectl get svc -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {.spec.ports[*].nodePort}{"\n"}{end}' \
-  | grep -w 30080 && echo "nodePort 30080 사용 중 — 위 Service 를 먼저 정리할 것" || echo "nodePort 30080 비어 있음 (정상)"
-
-# 3) 시작 상태 확인: 컨테이너 ports 가 비어 있고 Service 가 없어야 함
-kubectl -n spline get deploy front-end -o jsonpath='{.spec.template.spec.containers[0].name} ports={.spec.template.spec.containers[0].ports}{"\n"}'
-kubectl -n spline get svc
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_d/q09_nodeport_expose_container_port
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -43,14 +30,6 @@ bash cleanup.sh    # 실습 후 정리
 
 설정 직후 `spline` 에는 Deployment `front-end`(컨테이너 `nginx`, `ports` 없음, 파드 2개)만 있고 Service 는 없다.
 2단계에서 `30080` 을 쓰는 Service 가 출력되면 그 Service 를 먼저 지우거나 다른 실습을 정리한 뒤 푼다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl delete ns spline --ignore-not-found
-```
-
-</details>
 
 ## Task
 
@@ -70,6 +49,16 @@ Its pod template does not declare any container ports.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q08](../q08_gateway_httproute_basic/question.md) · [q10 →](../q10_networkpolicy_allow_from_label/question.md)

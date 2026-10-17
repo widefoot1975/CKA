@@ -186,8 +186,6 @@ for i in $(seq 1 5); do curl -s -H "Host: shop.example.com" http://$GW/canary/; 
 - https://kubernetes.io/docs/concepts/services-networking/gateway/
 - https://gateway-api.sigs.k8s.io/guides/traffic-splitting/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q09 →](../q09_ingress_to_gateway_migration/question.md)

@@ -227,8 +227,6 @@ kubectl -n cni-test exec b -- wget -qO- --timeout=3 http://$A_IP   # (정책 적
 - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network
 - https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q04 →](../q04_operator_install_configure/question.md)

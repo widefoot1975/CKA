@@ -7,8 +7,6 @@
 | Points | 6 |
 | Host | `ssh k8s-c4` (→ `ssh <node>` if needed) |
 | Target time | 6 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
@@ -22,50 +20,18 @@
 만들고 워커를 join 한 뒤 **CNI 를 깔지 않은 채로** 둔다. 노드가 `NotReady`, CoreDNS 가 `Pending` 이면 된다.
 **이 시점에 모든 노드의 VM 스냅샷을 찍어 두기를 권한다.** 스냅샷으로 되돌리면 같은 설치를 몇 번이고 다시 연습할 수 있다.
 
-`k8s-c4` 에서 아래 둘 중 하나를 실행한다. 클러스터를 바꾸지 않으므로 여러 번 실행해도 안전하다.
+`k8s-c4` 에서 아래 스크립트를 실행한다. 클러스터를 바꾸지 않으므로 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-CALICO=v3.30.3
-FLANNEL=v0.27.4
-
-# 0) 이전 실습 흔적 정리 (cni-test 는 이 문제만 쓴다)
-kubectl delete ns cni-test --ignore-not-found --wait=true
-rm -rf /opt/course/q03
-
-# 1) 매니페스트 두 벌 받아 두기 — Calico 는 operator 방식, custom-resources.yaml 의 CIDR 은 기본값(192.168.0.0/16) 그대로
-mkdir -p /opt/course/q03/flannel /opt/course/q03/calico
-curl -fsSL -o /opt/course/q03/flannel/kube-flannel.yml \
-  https://github.com/flannel-io/flannel/releases/download/$FLANNEL/kube-flannel.yml
-for f in operator-crds.yaml tigera-operator.yaml custom-resources.yaml; do
-  curl -fsSL -o /opt/course/q03/calico/$f \
-    https://raw.githubusercontent.com/projectcalico/calico/$CALICO/manifests/$f
-done
-ls -R /opt/course/q03
-
-# 2) 이미 CNI 가 깔려 있는지 — 있으면 2·3번은 그대로 재현되지 않는다 (스크립트는 지우지 않는다)
-CNI=$(kubectl get ds -A --no-headers 2>/dev/null \
-  | grep -Eo 'calico-node|kube-flannel-ds|cilium|weave-net|kube-router|antrea-agent' | sort -u | tr '\n' ' ' || true)
-if [ -z "$CNI" ]; then
-  echo "OK: CNI 가 없습니다. 노드가 NotReady 인 문제 상태 그대로입니다"
-else
-  echo "NG: 이미 CNI 가 있습니다 ($CNI). 2·3번은 CNI 없이 새로 만든 kubeadm 클러스터에서 풀어야 합니다"
-fi
-
-# 3) kubeadm 에 podSubnet 이 지정되어 있는지 (값은 1번의 답이라 출력하지 않는다)
-if kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' | grep -q podSubnet; then
-  echo "OK: kubeadm-config 에 podSubnet 이 있습니다"
-else
-  echo "NG: podSubnet 이 없습니다. kubeadm init --pod-network-cidr=<대역> 으로 만든 클러스터가 필요합니다"
-fi
-
-# 4) 4번용 노드 수 (서로 다른 노드 두 개)와 시작 상태
-kubectl get nodes
-kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_c/q03_cni_install_networkpolicy
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 매니페스트 받기 + 연습 가능 여부 점검 (OK / NG 로 알려 준다)
@@ -81,15 +47,6 @@ bash cleanup.sh    # 실습 후 정리 (cni-test 와 /opt/course/q03 만 지운�
 Flannel 이라면 5번에서 정책이 **막지 않는 것**을 직접 확인해 볼 수 있다.
 정리 스크립트는 설치한 CNI 를 지우지 않는다. 처음부터 다시 하려면 스냅샷으로 되돌리거나 모든 노드에서
 `kubeadm reset` 후 다시 만든다. 실수로 Flannel 을 깔았을 때도 같다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl delete ns cni-test --ignore-not-found
-rm -rf /opt/course/q03
-```
-
-</details>
 
 ## Task
 
@@ -118,6 +75,16 @@ pods are `Pending`. Two sets of CNI manifests are staged on the task host:
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q02](../q02_kustomize_overlay_deploy/question.md) · [q04 →](../q04_operator_install_configure/question.md)

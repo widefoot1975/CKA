@@ -147,8 +147,6 @@ kubectl -n web exec web-app -- ls /etc/nginx          # nginx.conf, conf.d, mime
 - 검색어: `configure pod configmap`
 - https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q07 →](../q07_taint_toleration_affinity/question.md)

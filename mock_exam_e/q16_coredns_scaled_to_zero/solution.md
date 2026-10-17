@@ -115,8 +115,6 @@ search 를 적용하므로, 문제 설명처럼 `kubernetes.default` 로도 해�
 - https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
 - https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q17 →](../q17_top_node_and_containers/question.md)

@@ -200,8 +200,6 @@ kubectl -n store describe pvc data-pvc | grep -i ExternalExpanding
 - https://kubernetes.io/docs/concepts/storage/persistent-volumes/#expanding-persistent-volumes-claims
 - https://kubernetes.io/docs/concepts/storage/storage-classes/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q12 →](../q12_csi_driver_volumemode/question.md)

@@ -7,43 +7,21 @@
 | Points | 6 |
 | Host | `ssh k8s-c1` |
 | Target time | 6 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리 — 이 문제가 만드는 리소스만 지운다
-#    (mock_exam_b/q10 도 alpha·beta 를 쓰므로 namespace 는 다른 리소스가 없을 때만 지운다)
-for ns in alpha beta; do
-  kubectl get ns "$ns" >/dev/null 2>&1 || continue
-  kubectl -n "$ns" delete deploy/web svc/web pod/no-dns pod/dns --ignore-not-found --wait=true
-  if [ -z "$(kubectl -n "$ns" get deploy,sts,ds,svc,pod,job,cronjob -o name 2>/dev/null)" ]; then
-    kubectl delete ns "$ns" --wait=true
-  else
-    echo "namespace $ns 에 다른 문제의 리소스가 남아 있어 namespace 는 지우지 않음"
-  fi
-done
-
-# 1) 노드가 nginx 와 DNS 디버그 이미지를 받을 수 있는지 미리 확인 (오프라인 실습 환경 대비)
-kubectl run img-check --image=nginx:1.27 --restart=Never --rm -i --pod-running-timeout=2m -- nginx -v || \
-  echo "nginx 이미지를 받지 못함 — 레지스트리 접근을 먼저 확인할 것"
-kubectl run img-check-dns --image=registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3 \
-  --restart=Never --rm -i --pod-running-timeout=2m -- true || \
-  echo "jessie-dnsutils 이미지를 받지 못함 — 레지스트리 접근을 먼저 확인할 것"
-
-# 2) 시작 상태 확인: CoreDNS 가 Ready 이고 alpha·beta 에 web 이 없음
-kubectl -n kube-system rollout status deploy coredns --timeout=120s
-for ns in alpha beta; do
-  kubectl -n "$ns" get deploy,svc web 2>/dev/null || echo "$ns/web 없음 (정상)"
-done
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_a/q10_coredns_service_discovery
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -55,22 +33,6 @@ nginx 와 DNS 디버그 이미지(`jessie-dnsutils`)를 받을 수 있는지, Co
 `mock_exam_b/q10` 도 `alpha`·`beta` namespace 를 쓰므로, setup 과 cleanup 은 이 문제가 만드는 `web`·`no-dns`·`dns` 만 지우고
 namespace 는 그 안에 다른 리소스가 없을 때만 지운다. namespace 가 남아 있으면 1단계의 `kubectl create namespace` 는
 `AlreadyExists` 로 끝나는데, 그대로 다음 명령을 이어 가면 된다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-for ns in alpha beta; do
-  kubectl get ns "$ns" >/dev/null 2>&1 || continue
-  kubectl -n "$ns" delete deploy/web svc/web pod/no-dns pod/dns --ignore-not-found
-  if [ -z "$(kubectl -n "$ns" get deploy,sts,ds,svc,pod,job,cronjob -o name 2>/dev/null)" ]; then
-    kubectl delete ns "$ns"
-  else
-    echo "namespace $ns 에 다른 문제의 리소스가 남아 있어 namespace 는 지우지 않음"
-  fi
-done
-```
-
-</details>
 
 ## Task
 
@@ -93,6 +55,16 @@ Two namespaces expose a Service of the same name and clients keep reaching the w
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q09](../q09_ingress_path_routing/question.md) · [q11 →](../q11_pv_pvc_static_provisioning/question.md)

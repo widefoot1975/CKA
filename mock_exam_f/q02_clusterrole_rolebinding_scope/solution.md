@@ -115,8 +115,6 @@ kubectl -n team-a get rolebinding anna-deploy-view -o wide
 - 검색어: `using rbac authorization`
 - https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q03 →](../q03_kubeadm_upgrade_worker/question.md)

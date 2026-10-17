@@ -231,8 +231,6 @@ kubectl uncordon worker01
 - https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment
 - https://kubernetes.io/docs/tasks/run-application/configure-pdb/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q07 →](../q07_job_cronjob/question.md)

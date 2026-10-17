@@ -125,8 +125,6 @@ cat /opt/course/e13/cause.txt                    # https://10.0.5.20:2379
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q14 →](../q14_node_containerd_stopped/question.md)

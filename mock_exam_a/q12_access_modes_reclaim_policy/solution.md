@@ -256,8 +256,6 @@ kubectl -n ops describe pvc pvc-rwx | tail -4      # ProvisioningFailed ... stor
 - https://kubernetes.io/docs/concepts/storage/persistent-volumes/
 - https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reserving-a-persistentvolume
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q13 →](../q13_node_notready_kubelet/question.md)

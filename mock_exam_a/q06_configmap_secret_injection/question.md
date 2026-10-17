@@ -7,35 +7,21 @@
 | Points | 5 |
 | Host | `ssh k8s-c1` |
 | Target time | 5 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리 — 이 문제가 만드는 오브젝트만 지운다 (namespace 는 남김)
-if kubectl get ns web >/dev/null 2>&1; then
-  kubectl -n web delete pod web-app --ignore-not-found --wait=true
-  kubectl -n web delete configmap app-config app-files --ignore-not-found
-  kubectl -n web delete secret db-cred --ignore-not-found
-fi
-
-# 1) namespace web 준비 (문제는 web 이 이미 있다고 가정한다)
-kubectl create ns web --dry-run=client -o yaml | kubectl apply -f -
-
-# 2) 노드가 nginx 이미지를 받을 수 있는지 미리 확인 (오프라인 실습 환경 대비)
-kubectl run img-check --image=nginx:1.27 --restart=Never --rm -i --pod-running-timeout=2m -- nginx -v || \
-  echo "nginx 이미지를 받지 못함 — 레지스트리 접근을 먼저 확인할 것"
-
-# 3) 시작 상태 확인: web-app / app-config / app-files / db-cred 가 없어야 함
-kubectl -n web get pod,configmap,secret
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_a/q06_configmap_secret_injection
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -47,27 +33,6 @@ nginx 이미지를 받을 수 있는지만 확인한다. 설정 직후 `web` 에
 
 `web` 은 mock_exam_a/q09, mock_exam_b/q05, mock_exam_f/q06 도 쓰는 namespace 다. 특히 f06 도 `app-config` 를 만들므로
 두 문제를 동시에 풀지 않는다. 정리할 때는 이 문제의 오브젝트만 지우고, `web` 이 비었을 때만 namespace 를 지운다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-if kubectl get ns web >/dev/null 2>&1; then
-  kubectl -n web delete pod web-app --ignore-not-found --wait=true
-  kubectl -n web delete configmap app-config app-files --ignore-not-found
-  kubectl -n web delete secret db-cred --ignore-not-found
-
-  left=$(kubectl -n web get all,ingress,pvc,configmap,secret -o name 2>/dev/null \
-           | grep -v '^configmap/kube-root-ca.crt$' || true)
-  if [ -z "$left" ]; then
-    kubectl delete ns web
-  else
-    echo "namespace web 에 다른 리소스가 남아 있어 namespace 는 지우지 않음:"
-    echo "$left"
-  fi
-fi
-```
-
-</details>
 
 ## Task
 
@@ -91,6 +56,16 @@ An application in namespace `web` takes its settings from the cluster, not from 
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q05](../q05_deployment_rollout_rollback/question.md) · [q07 →](../q07_taint_toleration_affinity/question.md)

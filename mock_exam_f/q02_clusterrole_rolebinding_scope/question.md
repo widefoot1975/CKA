@@ -7,33 +7,21 @@
 | Points | 6 |
 | Host | `ssh k8s-c1` |
 | Target time | 6 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리 (ClusterRole·ClusterRoleBinding 은 클러스터 범위라 따로 지운다)
-kubectl delete clusterrolebinding anna-deploy-view --ignore-not-found
-kubectl delete clusterrole deployment-viewer --ignore-not-found
-kubectl delete ns team-a team-b --ignore-not-found --wait=true
-
-# 1) 네임스페이스 두 개와, 읽어 볼 Deployment 하나씩
-kubectl create ns team-a
-kubectl create ns team-b
-kubectl -n team-a create deployment web-a --image=nginx:1.27
-kubectl -n team-b create deployment web-b --image=nginx:1.27
-
-# 2) 시작 상태 확인: dev-anna 는 아직 아무 권한이 없다 (모두 no)
-kubectl auth can-i list deployments -n team-a --as=dev-anna || true
-kubectl auth can-i list deployments -n team-b --as=dev-anna || true
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_f/q02_clusterrole_rolebinding_scope
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -42,16 +30,6 @@ bash cleanup.sh    # 실습 후 정리
 
 설정 직후 `team-a` 에 Deployment `web-a`, `team-b` 에 `web-b` 가 있고, `deployment-viewer` 와 `anna-deploy-view` 는 없다. `dev-anna` 는 아직 아무 권한이 없어 `can-i` 가 모두 `no` 다.
 실수로 ClusterRoleBinding `anna-deploy-view` 를 만들었어도 `setup.sh`·`cleanup.sh` 가 함께 지운다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl delete clusterrolebinding anna-deploy-view --ignore-not-found
-kubectl delete clusterrole deployment-viewer --ignore-not-found
-kubectl delete ns team-a team-b --ignore-not-found
-```
-
-</details>
 
 ## Task
 
@@ -72,6 +50,16 @@ cluster level, so that they can be reused for other namespaces later.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q01](../q01_helm_template_without_crds/question.md) · [q03 →](../q03_kubeadm_upgrade_worker/question.md)

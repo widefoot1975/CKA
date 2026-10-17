@@ -260,8 +260,6 @@ cat /opt/q07/preempt.txt /opt/q07/never.txt
 - 검색어: `pod priority and preemption`
 - https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q08 →](../q08_gateway_api_httproute/question.md)

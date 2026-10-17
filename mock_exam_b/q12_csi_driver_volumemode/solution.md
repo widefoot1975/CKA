@@ -181,8 +181,6 @@ kubectl get pv -o custom-columns='NAME:.metadata.name,MODE:.spec.volumeMode'
 - https://kubernetes.io/docs/concepts/storage/persistent-volumes/#raw-block-volume-support
 - https://kubernetes.io/docs/concepts/storage/volumes/#csi
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q13 →](../q13_metrics_server_resource_usage/question.md)

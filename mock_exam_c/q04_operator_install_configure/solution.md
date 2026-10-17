@@ -251,8 +251,6 @@ kubectl auth can-i delete backups.telco.io -n default --as=system:serviceaccount
 - https://kubernetes.io/docs/concepts/extend-kubernetes/operator/
 - https://kubernetes.io/docs/reference/access-authn-authz/rbac/#aggregated-clusterroles
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q05 →](../q05_statefulset_daemonset_selfheal/question.md)

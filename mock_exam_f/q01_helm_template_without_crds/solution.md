@@ -129,8 +129,6 @@ kubectl -n argocd get deploy            # 모든 Deployment 가 READY
 - https://helm.sh/docs/chart_best_practices/custom_resource_definitions/
 - https://helm.sh/docs/topics/charts/#custom-resource-definitions-crds
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q02 →](../q02_clusterrole_rolebinding_scope/question.md)

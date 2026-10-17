@@ -204,8 +204,6 @@ kubectl -n gw get gateway main-gw -o jsonpath='{.status.listeners[0].attachedRou
 - https://gateway-api.sigs.k8s.io/reference/api-types/httproute/
 - https://gateway-api.sigs.k8s.io/guides/http-routing/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q15 →](../q15_cni_pod_containercreating/question.md)

@@ -7,98 +7,22 @@
 | Points | 6 |
 | Host | `ssh k8s-c1` |
 | Target time | 8 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 namespace `logs` 는 A16 도 쓰므로 namespace 는 지우지 않고 이 문제의 파드만 정리한다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리 (이 문제가 만드는 파드만)
-kubectl -n logs delete pod order-api --ignore-not-found --wait=true 2>/dev/null || true
-rm -rf /opt/course/d16
-
-# 1) namespace + Pod order-api
-#    - log-agent: 네이티브 사이드카, 시작하자마자 15줄을 찍고 5초마다 INFO/ERROR 를 남긴다
-#    - api: 첫 실행은 FATAL 을 남기고 exit 1 → 한 번 재시작한 뒤에는 계속 돈다 (emptyDir 의 표식 파일로 구분)
-#    namespace 는 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
-if ! kubectl get ns logs >/dev/null 2>&1; then
-  kubectl create ns logs
-  kubectl label ns logs cka-lab-d16=created --overwrite
-fi
-cat <<'EOF' | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: order-api
-  namespace: logs
-spec:
-  initContainers:
-  - name: log-agent
-    image: busybox:1.36
-    restartPolicy: Always
-    command:
-    - sh
-    - -c
-    - |
-      for i in $(seq 1 15); do echo "$(date -u +%FT%TZ) INFO agent ready, buffered line $i"; done
-      i=0
-      while true; do
-        i=$((i+1))
-        if [ $((i % 4)) -eq 0 ]; then echo "$(date -u +%FT%TZ) ERROR upstream rejected batch $i"
-        else echo "$(date -u +%FT%TZ) INFO shipped batch $i"; fi
-        sleep 5
-      done
-  containers:
-  - name: api
-    image: busybox:1.36
-    command:
-    - sh
-    - -c
-    - |
-      if [ ! -f /state/started ]; then
-        touch /state/started
-        echo "$(date -u +%FT%TZ) INFO api starting (first run)"
-        echo "$(date -u +%FT%TZ) FATAL cannot reach database, exiting"
-        sleep 3
-        exit 1
-      fi
-      echo "$(date -u +%FT%TZ) INFO api restarted, serving orders"
-      i=0
-      while true; do
-        i=$((i+1))
-        if [ $((i % 3)) -eq 0 ]; then echo "$(date -u +%FT%TZ) ERROR payment timeout order=$i"
-        else echo "$(date -u +%FT%TZ) INFO order $i processed"; fi
-        sleep 5
-      done
-    volumeMounts:
-    - name: state
-      mountPath: /state
-  volumes:
-  - name: state
-    emptyDir: {}
-EOF
-
-# 2) api 가 한 번 재시작하고 파드가 Ready 가 될 때까지 기다린다
-for i in $(seq 1 60); do
-  RC=$(kubectl -n logs get pod order-api -o jsonpath='{.status.containerStatuses[?(@.name=="api")].restartCount}' 2>/dev/null || true)
-  [ "${RC:-0}" -ge 1 ] && break
-  sleep 3
-done
-kubectl -n logs wait pod order-api --for=condition=Ready --timeout=120s
-
-# 3) 답안 파일 디렉터리
-mkdir -p /opt/course/d16
-
-# 4) 설정 확인: READY 2/2, RESTARTS 1
-kubectl -n logs get pod order-api
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_d/q16_sidecar_container_logs
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -107,29 +31,6 @@ bash cleanup.sh    # 실습 후 정리
 
 설정 직후 `order-api` 는 `READY 2/2`, `RESTARTS 1` 이다. `api` 의 첫 인스턴스는 FATAL 을 남기고 exit 1 로 죽었고, 두 컨테이너 모두 5초마다 INFO/ERROR 줄을 남긴다.
 네이티브 사이드카를 쓰므로 v1.29 이상 클러스터가 필요하다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl -n logs delete pod order-api --ignore-not-found --wait=true 2>/dev/null || true
-rm -rf /opt/course/d16
-
-# namespace 는 이 실습의 setup 이 만들었고(라벨 cka-lab-d16=created) 남은 리소스가 없을 때만 지운다
-for ns in logs; do
-  [ "$(kubectl get ns "$ns" -o jsonpath='{.metadata.labels.cka-lab-d16}' 2>/dev/null || true)" = "created" ] || continue
-  left=$( { kubectl -n "$ns" get all,configmap,secret,ingress,pvc,networkpolicy -o name 2>/dev/null
-            kubectl -n "$ns" get gateway,httproute -o name 2>/dev/null; } \
-          | grep -v '^configmap/kube-root-ca.crt$' || true)
-  if [ -z "$left" ]; then
-    kubectl delete ns "$ns"
-  else
-    echo "namespace $ns 에 다른 리소스가 남아 있어 namespace 는 지우지 않음:"
-    echo "$left"
-  fi
-done
-```
-
-</details>
 
 ## Task
 
@@ -149,6 +50,16 @@ container `log-agent` (declared under `initContainers` with `restartPolicy: Alwa
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q15](../q15_service_selector_mismatch/question.md) · [q17 →](../q17_top_pod_cpu/question.md)

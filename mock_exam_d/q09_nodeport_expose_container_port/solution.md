@@ -129,8 +129,6 @@ curl -s http://192.168.100.21:30080 | grep '<title>'  # <title>Welcome to nginx!
 - https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
 - https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q10 →](../q10_networkpolicy_allow_from_label/question.md)

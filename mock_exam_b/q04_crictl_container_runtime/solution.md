@@ -165,8 +165,6 @@ crictl images | wc -l             # prune 전보다 줄어든다
 - 검색어: `debugging kubernetes nodes with crictl`
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q05 →](../q05_hpa_workload_autoscaling/question.md)

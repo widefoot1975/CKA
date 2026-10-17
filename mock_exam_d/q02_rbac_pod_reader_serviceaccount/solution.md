@@ -111,8 +111,6 @@ kubectl auth can-i list pods -n default --as=system:serviceaccount:apps:monitor 
 - https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources
 - https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q03 →](../q03_crd_explore_explain/question.md)

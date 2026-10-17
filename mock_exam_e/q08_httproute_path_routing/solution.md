@@ -154,8 +154,6 @@ curl -s -H 'Host: shop.example.com' http://$GW/             # catalog 가 응답
 - https://gateway-api.sigs.k8s.io/api-types/httproute/
 - https://gateway-api.sigs.k8s.io/guides/multiple-ns/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q09 →](../q09_ingress_path_basic/question.md)

@@ -7,36 +7,21 @@
 | Points | 6 |
 | Host | `ssh k8s-c1` |
 | Target time | 6 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 결과 파일 정리
-rm -rf /opt/course/d03
-
-# 1) cert-manager 설치 (a03 처럼 Helm 으로 이미 설치돼 있으면 건드리지 않는다)
-if kubectl get crd certificates.cert-manager.io >/dev/null 2>&1; then
-  echo "cert-manager 가 이미 설치돼 있음 — 설치 건너뜀"
-else
-  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
-fi
-kubectl wait --for=condition=Established crd/certificates.cert-manager.io --timeout=120s
-kubectl -n cert-manager wait --for=condition=Available deploy --all --timeout=180s
-
-# 2) 결과 파일 디렉터리
-mkdir -p /opt/course/d03
-
-# 3) 설정 확인
-kubectl get crd | grep cert-manager.io
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_d/q03_crd_explore_explain
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -45,16 +30,6 @@ bash cleanup.sh    # 실습 후 정리
 
 설정 직후 `kubectl get crd | grep cert-manager.io` 에 cert-manager CRD 6개가 보이고, `/opt/course/d03/` 는 비어 있다.
 `cleanup.sh` 는 결과 파일만 지운다. cert-manager 까지 지우려면 스크립트의 주석을 해제한다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-rm -rf /opt/course/d03
-# cert-manager 까지 지우려면 아래 주석을 해제 (다른 문제에서 쓰면 남겨 둘 것)
-# kubectl delete -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml --ignore-not-found
-```
-
-</details>
 
 ## Task
 
@@ -74,6 +49,16 @@ custom resources it added.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q02](../q02_rbac_pod_reader_serviceaccount/question.md) · [q04 →](../q04_kubeadm_cert_renewal/question.md)

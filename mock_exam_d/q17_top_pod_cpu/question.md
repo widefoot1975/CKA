@@ -7,57 +7,22 @@
 | Points | 5 |
 | Host | `ssh k8s-c1` |
 | Target time | 7 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 namespace `batch` 는 C07 도 쓰므로 namespace 는 지우지 않고 이 문제의 파드만 정리한다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리 (이 문제가 만드는 파드만)
-kubectl -n batch delete pod cruncher-1 cruncher-2 idle-0 --ignore-not-found --wait=true 2>/dev/null || true
-rm -rf /opt/course/d17
-
-# 1) metrics-server 설치 (실습 클러스터는 --kubelet-insecure-tls 필요)
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-if ! kubectl -n kube-system get deploy metrics-server \
-     -o jsonpath='{.spec.template.spec.containers[0].args}' | grep -q -- '--kubelet-insecure-tls'; then
-  kubectl -n kube-system patch deploy metrics-server --type=json \
-    -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-fi
-kubectl -n kube-system rollout status deploy metrics-server --timeout=180s
-
-# 2) namespace + 파드 세 개: CPU 를 태우는 cruncher-1(최대 100m)·cruncher-2(최대 400m), 노는 idle-0
-#    busy loop 에 CPU limit 을 걸어 두어 순위가 매번 같게 나온다
-#    namespace 는 없을 때만 만들고, 이 실습이 만들었다는 표시를 남긴다 (cleanup 이 이 표시를 보고 판단)
-if ! kubectl get ns batch >/dev/null 2>&1; then
-  kubectl create ns batch
-  kubectl label ns batch cka-lab-d17=created --overwrite
-fi
-for spec in cruncher-1:100m cruncher-2:400m; do
-  name=${spec%%:*}; cpu=${spec##*:}
-  kubectl -n batch run "$name" --image=busybox:1.36 --labels=app=cruncher \
-    --overrides="{\"spec\":{\"containers\":[{\"name\":\"$name\",\"image\":\"busybox:1.36\",\"command\":[\"sh\",\"-c\",\"while true; do :; done\"],\"resources\":{\"requests\":{\"cpu\":\"50m\"},\"limits\":{\"cpu\":\"$cpu\"}}}]}}"
-done
-kubectl -n batch run idle-0 --image=busybox:1.36 --labels=app=idle -- sleep 86400
-kubectl -n batch wait pod --all --for=condition=Ready --timeout=120s
-
-# 3) 답안 파일 디렉터리
-mkdir -p /opt/course/d17
-
-# 4) 첫 수집까지 기다렸다가 확인 (1분 정도 걸릴 수 있음)
-for i in $(seq 1 30); do
-  kubectl top pod -n batch >/dev/null 2>&1 && break
-  sleep 5
-done
-kubectl top pod -n batch
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_d/q17_top_pod_cpu
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -66,30 +31,6 @@ bash cleanup.sh    # 실습 후 정리
 
 설정 직후 `batch` 에는 `cruncher-1`(CPU 최대 100m), `cruncher-2`(CPU 최대 400m), `idle-0` 이 있다. metrics-server 가 첫 값을 모으기까지 1분 정도 걸릴 수 있다.
 노드 메모리(2번)는 클러스터 상태 그대로 답한다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl -n batch delete pod cruncher-1 cruncher-2 idle-0 --ignore-not-found --wait=true 2>/dev/null || true
-rm -rf /opt/course/d17
-# metrics-server 는 다른 문제에서도 쓰므로 남겨 둔다
-
-# namespace 는 이 실습의 setup 이 만들었고(라벨 cka-lab-d17=created) 남은 리소스가 없을 때만 지운다
-for ns in batch; do
-  [ "$(kubectl get ns "$ns" -o jsonpath='{.metadata.labels.cka-lab-d17}' 2>/dev/null || true)" = "created" ] || continue
-  left=$( { kubectl -n "$ns" get all,configmap,secret,ingress,pvc,networkpolicy -o name 2>/dev/null
-            kubectl -n "$ns" get gateway,httproute -o name 2>/dev/null; } \
-          | grep -v '^configmap/kube-root-ca.crt$' || true)
-  if [ -z "$left" ]; then
-    kubectl delete ns "$ns"
-  else
-    echo "namespace $ns 에 다른 리소스가 남아 있어 namespace 는 지우지 않음:"
-    echo "$left"
-  fi
-done
-```
-
-</details>
 
 ## Task
 
@@ -106,6 +47,16 @@ metrics-server is running in the cluster. Several pods in namespace `batch` are 
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q16](../q16_sidecar_container_logs/question.md)

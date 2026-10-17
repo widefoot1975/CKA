@@ -211,8 +211,6 @@ kubectl -n data get pod queue-0 \
 - https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-storage
 - https://kubernetes.io/docs/tasks/run-application/scale-stateful-set/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q12 →](../q12_pvc_expand_reclaim_behavior/question.md)

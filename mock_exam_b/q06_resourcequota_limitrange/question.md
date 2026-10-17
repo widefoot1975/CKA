@@ -7,29 +7,21 @@
 | Points | 5 |
 | Host | `ssh k8s-c1` |
 | Target time | 5 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-문제를 풀기 전에 `k8s-c1` 에서 아래 둘 중 하나로 환경을 만든다. 여러 번 실행해도 안전하다.
+문제를 풀기 전에 `k8s-c1` 에서 아래 스크립트로 환경을 만든다. 여러 번 실행해도 안전하다.
 
-**방법 A — 이 페이지의 명령어를 복사해서 붙여 넣기**
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-# 0) 이전 실습 흔적 정리 (namespace team-a 는 문제에서 직접 만든다)
-kubectl delete ns team-a --ignore-not-found --wait=true
-rm -rf /opt/q06
-
-# 1) 답안 파일 디렉터리
-mkdir -p /opt/q06
-
-# 2) 설정 확인: team-a 가 없어야 함
-kubectl get ns team-a 2>/dev/null || echo "namespace team-a 없음 (정상)"
-ls -ld /opt/q06
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_b/q06_resourcequota_limitrange
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
+</details>
 
 ```bash
 bash setup.sh      # 환경 만들기
@@ -37,15 +29,6 @@ bash cleanup.sh    # 실습 후 정리
 ```
 
 namespace `team-a` 는 문제 1번에서 직접 만들어야 하므로 setup 은 지우기만 하고, 답안 디렉터리 `/opt/q06/` 만 만든다.
-
-<details><summary>정리 명령 (방법 A)</summary>
-
-```bash
-kubectl delete ns team-a --ignore-not-found
-rm -rf /opt/q06
-```
-
-</details>
 
 ## Task
 
@@ -69,6 +52,16 @@ by hand.
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q05](../q05_hpa_workload_autoscaling/question.md) · [q07 →](../q07_priorityclass_preemption/question.md)

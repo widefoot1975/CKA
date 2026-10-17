@@ -177,8 +177,6 @@ cat /opt/q13/api-containers.txt   # api 파드마다 app·log-agent 두 줄
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/
 - https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q14 →](../q14_gateway_traffic_not_routed/question.md)

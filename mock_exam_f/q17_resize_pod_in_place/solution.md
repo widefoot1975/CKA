@@ -103,8 +103,6 @@ cat /opt/course/f17/usage.txt                         # 4Mi
 - 검색어: `resize container resources`
 - https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md)

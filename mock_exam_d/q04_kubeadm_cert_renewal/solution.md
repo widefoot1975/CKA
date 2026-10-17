@@ -126,8 +126,6 @@ kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes    # API 정상 응답
 - https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/
 - https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q05 →](../q05_deployment_scale_rollout_undo/question.md)

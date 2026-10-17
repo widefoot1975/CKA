@@ -155,8 +155,6 @@ EOF
 - https://kubernetes.io/docs/concepts/policy/resource-quotas/
 - https://kubernetes.io/docs/concepts/policy/limit-range/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q07 →](../q07_priorityclass_preemption/question.md)

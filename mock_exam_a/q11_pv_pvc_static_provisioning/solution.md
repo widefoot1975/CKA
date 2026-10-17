@@ -147,8 +147,6 @@ tail -3 /mnt/data/logs/out.log                  # worker01 에서 — 같은 줄
 - 검색어: `configure persistent volume storage`
 - https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q12 →](../q12_access_modes_reclaim_policy/question.md)

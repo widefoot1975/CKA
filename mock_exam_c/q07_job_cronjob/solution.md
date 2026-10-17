@@ -262,8 +262,6 @@ kubectl -n batch get cronjob report
 - https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
 - https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_job/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q08 →](../q08_httproute_traffic_split/question.md)

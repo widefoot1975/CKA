@@ -100,8 +100,6 @@ kubectl -n web exec deploy/api -- env | grep LOG_LEVEL   # LOG_LEVEL=info
 - https://kubernetes.io/docs/concepts/configuration/configmap/#configmap-immutable
 - https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q07 →](../q07_cronjob_manual_trigger/question.md)

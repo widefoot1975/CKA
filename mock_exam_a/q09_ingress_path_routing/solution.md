@@ -161,8 +161,6 @@ done
 - https://kubernetes.io/docs/concepts/services-networking/ingress/
 - https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q10 →](../q10_coredns_service_discovery/question.md)

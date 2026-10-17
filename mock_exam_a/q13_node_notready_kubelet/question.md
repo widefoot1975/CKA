@@ -7,44 +7,21 @@
 | Points | 7 |
 | Host | `ssh k8s-c1` → `ssh worker01`, then `sudo -i` |
 | Target time | 9 min |
-| Actual time |  |
-| Result | ☐ correct ☐ partial ☐ wrong |
 
 ## Setup — 사전 환경 설정
 
-이 문제는 **클러스터를 일부러 고장 낸 상태에서** 시작한다. `worker01` 에서 root 로 아래 둘 중 하나를 실행한다. 여러 번 실행해도 안전하다. 실습이 끝나면 반드시 정리(cleanup)해서 클러스터를 원래대로 돌려놓는다.
+이 문제는 **클러스터를 일부러 고장 낸 상태에서** 시작한다. `worker01` 에서 root 로 아래 스크립트를 실행한다. 여러 번 실행해도 안전하다. 실습이 끝나면 반드시 정리(cleanup)해서 클러스터를 원래대로 돌려놓는다.
 
-**방법 A — 명령어를 복사해서 붙여 넣기** (`ssh worker01` → `sudo -i` 한 뒤)
+**실행** · 스크립트: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
 
-<details><summary>명령어 펼치기 — 고장 내는 내용이 보이니 풀기 전에는 읽지 않는 것을 권장</summary>
+<details><summary>노드에 저장소가 없을 때 — 스크립트 두 개 내려받기</summary>
 
 ```bash
-CFG=/var/lib/kubelet/config.yaml
-KEEP=/root/.cka-setup          # 원본 설정 보관 위치
-
-# 1) 이전 실습 흔적 정리: 보관해 둔 원본이 있으면 먼저 되돌리고, 없으면 지금 원본을 보관한다
-mkdir -p $KEEP
-if [ -f $KEEP/a13-kubelet-config.yaml ]; then
-  cp -p $KEEP/a13-kubelet-config.yaml $CFG
-else
-  cp -p $CFG $KEEP/a13-kubelet-config.yaml
-fi
-
-# 2) 고장 내기 ("동료의 수정"): client CA 파일 경로 끝에 글자를 하나 붙인다 → kubelet 이 시작하자마자 종료
-sed -i 's#clientCAFile: /etc/kubernetes/pki/ca.crt$#clientCAFile: /etc/kubernetes/pki/ca.crtx#' $CFG
-systemctl enable kubelet
-systemctl restart kubelet || true
-
-# 3) 시작 상태 확인: kubelet 은 activating (auto-restart) 을 반복, containerd 는 active.
-#    약 1분 뒤 k8s-c1 에서 worker01 이 NotReady 로 바뀐다
-sleep 5
-systemctl is-active kubelet || true
-systemctl is-active containerd || true
+B=https://raw.githubusercontent.com/widefoot1975/CKA/main/mock_exam_a/q13_node_notready_kubelet
+curl -fsSLO $B/setup.sh && curl -fsSLO $B/cleanup.sh
 ```
 
 </details>
-
-**방법 B — 스크립트로 실행** · 파일: **[setup.sh](setup.sh)** / **[cleanup.sh](cleanup.sh)**
 
 ```bash
 # k8s-c1 에서 (스크립트를 worker01 로 보내 root 로 실행)
@@ -63,30 +40,6 @@ sudo bash cleanup.sh
 
 kubelet 설정 파일 `/var/lib/kubelet/config.yaml` 의 `clientCAFile` 경로를 `/etc/kubernetes/pki/ca.crt` 에서 없는 파일 `/etc/kubernetes/pki/ca.crtx` 로 바꾸고("동료의 수정") kubelet 을 재시작한다. kubelet 은 시작하자마자 종료되고 systemd 가 계속 다시 띄운다(`activating (auto-restart)`). containerd 는 건드리지 않는다.
 고장 내기 전에 원본을 `/root/.cka-setup/a13-kubelet-config.yaml` 에 보관한다. `cleanup.sh` 는 원본으로 되돌리고 kubelet 을 enable 한 뒤 재시작한다. 문제를 다 풀었다면 이미 같은 내용이라 돌려도 해가 없다.
-
-</details>
-
-<details><summary>정리 명령 (방법 A, worker01 에서 root 로)</summary>
-
-```bash
-CFG=/var/lib/kubelet/config.yaml
-KEEP=/root/.cka-setup
-
-# 1) setup.sh 가 보관한 원본으로 되돌린다
-if [ -f $KEEP/a13-kubelet-config.yaml ]; then
-  cp -p $KEEP/a13-kubelet-config.yaml $CFG
-  rm $KEEP/a13-kubelet-config.yaml
-fi
-
-# 2) kubelet 을 켜고 부팅 시 자동 시작도 켠 뒤 다시 띄운다
-systemctl enable kubelet
-systemctl restart kubelet
-
-# 3) kubelet 이 계속 active 인지 확인 (최대 30초)
-for _ in $(seq 10); do sleep 3; systemctl is-active --quiet kubelet && break; done
-systemctl is-active kubelet
-grep clientCAFile $CFG
-```
 
 </details>
 
@@ -110,6 +63,16 @@ Node `worker01` reports `NotReady` and its pods are stuck in `Terminating` or `P
 
 ```
 
+## Record
+
+<!-- One row per attempt. Score = points earned (0 … Points). The first row is the mock exam itself; later rows are reviews. -->
+
+| Date | Time (min) | Score | Note |
+|---|---|---|---|
+|  |  |  |  |
+
 ---
 
 Solution → **[solution.md](solution.md)**
+
+[↑ 문항 목록](../README.md) · [← q12](../q12_access_modes_reclaim_policy/question.md) · [q14 →](../q14_pod_crashloopbackoff/question.md)

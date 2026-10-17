@@ -201,8 +201,6 @@ kubectl -n infra get sts cache \
 - https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
 - https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
 
-## 복습 기록
+---
 
-| 날짜 | 결과 | 메모 |
-|---|---|---|
-|  |  |  |
+[↑ 문항 목록](../README.md) · [← 문제로](question.md) · [다음 문제 q06 →](../q06_probes_pod_disruption_budget/question.md)
