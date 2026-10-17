@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Cluster `k8s-c3` runs a stacked highly-available control plane (etcd runs on every control plane
+> node) with three control plane nodes. Nothing is broken; you only need to collect facts.
+>
+> 1. Write the `controlPlaneEndpoint` value from ConfigMap `kubeadm-config` in namespace
+>    `kube-system` to `/opt/course/e04/endpoint.txt`.
+> 2. Write the names of all control plane nodes to `/opt/course/e04/cp-nodes.txt`, one per line.
+> 3. On `cp01`, use `etcdctl` with the etcd server certificate files in `/etc/kubernetes/pki/etcd/`
+>    to write the number of etcd members to `/opt/course/e04/members.txt`, and confirm that every
+>    member reports healthy.
+
+**해석**
+
 `k8s-c3` 클러스터는 컨트롤 플레인 노드 3대로 된 stacked HA 컨트롤 플레인(모든 컨트롤 플레인 노드에서
 etcd가 실행됨)이다. 고장 난 것은 없고 정보만 수집하면 된다.
 
@@ -67,6 +81,35 @@ etcdctl endpoint health --cluster -w table      # 세 엔드포인트 모두 HEA
 | 1 | 1 | 0 |
 | 3 | 2 | 1 |
 | 5 | 3 | 2 |
+
+### 그림 — stacked HA 컨트롤 플레인
+
+```mermaid
+flowchart TB
+    C["kubectl · kubelet · kube-proxy"]
+    LB["로드밸런서 / VIP<br/>controlPlaneEndpoint<br/>예: k8s-c3-lb:6443"]
+    C -->|"모든 클라이언트는 이 주소로"| LB
+    subgraph cp01
+        A1["kube-apiserver"] --> E1["etcd 멤버"]
+    end
+    subgraph cp02
+        A2["kube-apiserver"] --> E2["etcd 멤버"]
+    end
+    subgraph cp03
+        A3["kube-apiserver"] --> E3["etcd 멤버"]
+    end
+    LB --> A1
+    LB --> A2
+    LB --> A3
+    E1 -.-|"peer 2380 · Raft 복제<br/>정족수 2/3"| E2
+    E2 -.- E3
+    E1 -.- E3
+```
+
+1. 클라이언트는 노드 하나가 아니라 `controlPlaneEndpoint`(로드밸런서) 로 접속합니다. 컨트롤 플레인 한 대가 죽어도 로드밸런서가 남은 API 서버로 보내 줍니다. 1번 답이 이 주소입니다.
+2. stacked 구성에서는 컨트롤 플레인 노드마다 etcd 멤버가 하나씩 있고, 각 API 서버는 보통 자기 노드의 etcd(`127.0.0.1:2379`) 에 붙습니다. 그래서 2번(컨트롤 플레인 노드 수)과 3번(etcd 멤버 수)이 같은 3이 됩니다.
+3. 세 etcd 멤버는 2380 포트로 서로 데이터를 복제합니다. 쓰기는 과반(2) 이 받아야 확정되므로 한 대까지 죽어도 클러스터가 동작합니다.
+4. `etcdctl endpoint health --cluster` 는 member list 에 있는 세 멤버 각각에 health 를 묻습니다. `--cluster` 가 없으면 `ETCDCTL_ENDPOINTS` 에 적은 로컬 멤버 하나만 확인합니다.
 
 ## 검증
 

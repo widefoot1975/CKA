@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The cluster runs v1.34. Bring it to v1.35.
+>
+> 1. **Before** applying any upgrade, show the upgrade plan kubeadm proposes for v1.35.
+> 2. Upgrade the control plane node `cp01`, including `kubelet` and `kubectl`.
+> 3. Upgrade the worker node `worker01`.
+> 4. Each node must be drained before its kubelet is replaced and made schedulable again
+>    afterwards.
+> 5. Confirm every node reports v1.35 and is `Ready`, and that no control plane component
+>    is failing.
+>
+> State in one line why the worker uses a different kubeadm subcommand than the control
+> plane.
+
+**해석**
+
 클러스터가 v1.34로 동작 중이다. v1.35로 올린다.
 
 1. 업그레이드를 적용하기 **전에**, kubeadm이 제안하는 v1.35 업그레이드 계획을 보인다.
@@ -75,6 +92,35 @@ kubectl uncordon worker01                    # 작업 호스트에서
 ```
 
 **왜 하위 명령이 다른가**: `upgrade apply` 는 컨트롤 플레인 컴포넌트의 정적 파드 매니페스트와 클러스터 설정(ClusterConfiguration)을 실제로 바꾸는 작업이라 첫 컨트롤 플레인 노드에서 한 번만 수행합니다. 워커에는 바꿀 컨트롤 플레인이 없고 kubelet 설정만 새 버전에 맞추면 되므로 `upgrade node` 를 씁니다. 컨트롤 플레인이 여러 대인 경우 **두 번째 이후 컨트롤 플레인 노드도 `upgrade node`** 입니다.
+
+### 그림 — 노드별 업그레이드 순서
+
+```mermaid
+flowchart LR
+    subgraph CP["cp01 — 첫 컨트롤 플레인"]
+        direction TB
+        C0["저장소 v1.34 → v1.35<br/>apt update"] --> C1["kubeadm 만 교체"]
+        C1 --> C2["kubeadm upgrade plan<br/>(1번 답)"]
+        C2 --> C3["kubeadm upgrade apply v1.35.x<br/>정적 파드 · ClusterConfiguration · 애드온"]
+        C3 --> C4["drain cp01"]
+        C4 --> C5["kubelet · kubectl 교체<br/>daemon-reload · restart"]
+        C5 --> C6["uncordon cp01"]
+    end
+    subgraph WK["worker01 — 워커"]
+        direction TB
+        W0["저장소 v1.34 → v1.35<br/>apt update (노드마다 따로)"] --> W1["kubeadm 만 교체"]
+        W1 --> W2["kubeadm upgrade node<br/>kubelet 설정만 갱신"]
+        W2 --> W3["drain worker01"]
+        W3 --> W4["kubelet · kubectl 교체<br/>daemon-reload · restart"]
+        W4 --> W5["uncordon worker01"]
+    end
+    C6 ==>|"컨트롤 플레인이 끝난 뒤"| W0
+```
+
+1. 순서는 항상 컨트롤 플레인 먼저, 워커 나중입니다. kubelet 은 API 서버보다 새 버전이면 안 되기 때문입니다.
+2. 두 노드의 흐름은 거의 같고, 가운데 kubeadm 하위 명령 하나만 다릅니다. `apply` 는 클러스터 전체(컨트롤 플레인 정적 파드, 클러스터 설정, CoreDNS·kube-proxy) 를 올리므로 첫 컨트롤 플레인에서 한 번만, 나머지 노드는 자기 kubelet 설정만 맞추는 `node` 입니다.
+3. 저장소 파일은 노드마다 있는 로컬 파일이라 워커에서도 다시 바꿔야 합니다. 빠뜨리면 워커에서 `Version ... was not found` 가 납니다.
+4. drain 은 kubelet 을 바꾸기 직전에, uncordon 은 kubelet 이 새 버전으로 돌아온 뒤에 합니다(4번 요구 사항).
 
 ## 검증
 

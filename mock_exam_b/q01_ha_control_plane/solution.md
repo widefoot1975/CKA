@@ -4,6 +4,28 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Cluster `k8s-c3` runs a stacked HA control plane on `cp01`, `cp02` and `cp03`. `cp03` died
+> and was rebuilt from scratch without running `kubeadm reset`, so its old etcd member is still
+> registered. The rebuilt `cp03` must come back.
+>
+> 1. From `cp01`, print the etcd member list and the health of every member with `etcdctl`,
+>    using the etcd server certificates. Write the number of registered members, how many are
+>    healthy, and how many **additional** member failures the cluster tolerates today to
+>    `/opt/q01/quorum.txt`.
+> 2. Remove the stale `cp03` member from etcd, and the old `cp03` Node object if it still
+>    exists, so the rebuilt machine can join again.
+> 3. On `cp01`, produce a join command that `cp03` can use to join **as a control plane
+>    node**, including a freshly uploaded certificate key. Write it to `/opt/q01/join.sh` —
+>    do not run it.
+> 4. Write to `/opt/q01/upgrade.txt` which `kubeadm` subcommand upgrades `cp01` and which one
+>    upgrades `cp02` and `cp03`.
+> 5. Confirm `cp01` and `cp02` are `Ready` and every remaining etcd member answers an
+>    endpoint health check.
+
+**해석**
+
 `k8s-c3` 클러스터는 `cp01`, `cp02`, `cp03` 으로 된 stacked HA 컨트롤 플레인이다. `cp03` 이 죽어서
 `kubeadm reset` 없이 새로 설치되었기 때문에, 예전 etcd 멤버가 아직 등록되어 있다. 재설치된 `cp03` 을
 다시 넣어야 한다.
@@ -91,6 +113,59 @@ EOF
 
 클러스터 수준 설정(ClusterConfiguration, 애드온 등)은 첫 노드의 `apply` 가 이미 바꿨으므로, 나머지
 컨트롤 플레인 노드는 자기 정적 파드 매니페스트와 kubelet 설정만 맞추는 `upgrade node` 를 씁니다.
+
+### 그림 1 — 정족수는 "등록된 멤버 수" 로 계산한다
+
+```mermaid
+flowchart LR
+    subgraph S1["지금 — 등록 3 · 정상 2"]
+        direction TB
+        a1["cp01 ✔"]
+        a2["cp02 ✔"]
+        a3["cp03 ✘<br/>(옛 멤버)"]
+        q1["정족수 = floor(3/2)+1 = 2<br/>정상 2 → 겨우 충족<br/>추가 장애 허용 0"]
+    end
+    subgraph S2["member remove 뒤 — 등록 2 · 정상 2"]
+        direction TB
+        b1["cp01 ✔"]
+        b2["cp02 ✔"]
+        q2["정족수 = floor(2/2)+1 = 2<br/>추가 장애 허용 여전히 0"]
+    end
+    subgraph S3["cp03 다시 join — 등록 3 · 정상 3"]
+        direction TB
+        c1["cp01 ✔"]
+        c2["cp02 ✔"]
+        c3["cp03 ✔<br/>(새 멤버, 새 ID)"]
+        q3["정족수 2<br/>추가 장애 허용 1"]
+    end
+    S1 -->|"etcdctl member remove"| S2 -->|"kubeadm join --control-plane"| S3
+```
+
+1. 죽은 멤버도 등록되어 있는 한 정족수 계산에 들어갑니다. 3개 중 2개만 살아 있으면 정족수 2를 겨우 채우는 상태라 한 대만 더 죽어도 쓰기가 멈춥니다. 1번 답은 `3, 2, 0` 입니다.
+2. 낡은 멤버를 지워 2개가 되어도 정족수는 2라서 장애 허용은 여전히 0입니다. 2개짜리 etcd 는 1개짜리보다 안전하지 않습니다.
+3. `cp03` 이 새 멤버(새 ID)로 다시 들어와 3개가 되어야 한 대 장애를 견딥니다.
+
+### 그림 2 — 컨트롤 플레인 join 에 필요한 것
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C1 as cp01
+    participant API as kube-apiserver<br/>(LB 주소)
+    participant C3 as cp03 (재설치)
+    C1->>API: kubeadm init phase upload-certs --upload-certs<br/>공유 인증서를 암호화해 Secret kubeadm-certs 에 올림 (2시간 유효)
+    Note over C1: 출력 마지막 줄 = certificate key
+    C1->>API: kubeadm token create --print-join-command<br/>--certificate-key KEY (토큰 24시간 유효)
+    Note over C1: /opt/q01/join.sh 에 저장 (실행하지 않음)
+    C3->>API: kubeadm join LB:6443 --token ... --control-plane --certificate-key KEY
+    API-->>C3: kubeadm-certs 를 KEY 로 풀어 CA 키 · SA 키 · front-proxy · etcd CA 받기
+    C3->>C3: 정적 파드 매니페스트 생성, etcd 멤버로 추가
+```
+
+1. 컨트롤 플레인은 CA 키, 서비스 어카운트 키 같은 인증서를 서로 공유해야 합니다. `upload-certs` 가 이것을 암호화해서 클러스터에 잠깐 올려 두고, 풀 수 있는 키(certificate key)를 출력합니다.
+2. 토큰은 "클러스터에 들어와도 되는가"를, certificate key 는 "공유 인증서를 받을 수 있는가"를 증명합니다. 둘의 유효 시간이 달라서(24시간, 2시간) 둘 다 새로 만듭니다.
+3. `--control-plane` 이 없으면 워커로 들어가고, `--certificate-key` 가 없으면 인증서를 받지 못해 컨트롤 플레인 join 이 실패합니다.
+4. 옛 `cp03` 멤버가 남아 있으면 마지막 단계(etcd 멤버 추가)에서 실패합니다. 그래서 2번(멤버 제거)을 3번보다 먼저 합니다.
 
 ## 검증
 

@@ -4,6 +4,23 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Document which container runtime, network plugin and storage drivers cluster `k8s-c1`
+> uses. Write all answer files on `k8s-c1`; read the node-local files on `worker01`.
+>
+> 1. Write each node's name and the container runtime (with version) that the node reports
+>    to `/opt/course/f04/runtime.txt`, one node per line.
+> 2. On `worker01`, find the `containerRuntimeEndpoint` set in `/var/lib/kubelet/config.yaml`
+>    and write its value to `/opt/course/f04/endpoint.txt`.
+> 3. On `worker01`, the container runtime uses the first file in lexical order in
+>    `/etc/cni/net.d/`. Write that file name and the `type` of the first plugin in it to
+>    `/opt/course/f04/cni.txt`, in the form `<file> <type>`.
+> 4. Write the names of all CSI drivers registered in the cluster to
+>    `/opt/course/f04/csi.txt`, one per line.
+
+**해석**
+
 클러스터 `k8s-c1` 이 어떤 컨테이너 런타임, 네트워크 플러그인, 스토리지 드라이버를 쓰는지 기록한다.
 답 파일은 모두 `k8s-c1` 에 쓰고, 노드 로컬 파일은 `worker01` 에서 읽는다.
 
@@ -70,6 +87,28 @@ kubectl get csidrivers --no-headers -o custom-columns=NAME:.metadata.name > /opt
 CNI 는 kubelet 이 아니라 **컨테이너 런타임(containerd)이 호출**합니다. 그래서 CNI 설정은 API 오브젝트가
 아니라 노드의 파일로만 보입니다. 예전 CNI 의 설정 파일이 이름순으로 앞에 남아 있으면 그 파일이 쓰이므로
 "이름순 첫 파일"이 실제로 쓰이는 설정입니다.
+
+### 그림 — 세 인터페이스는 누가 누구를 부르나
+
+```mermaid
+flowchart LR
+    API["kube-apiserver<br/>Node.status.nodeInfo<br/>CSIDriver · CSINode"]
+    subgraph worker01["worker01 (노드 로컬)"]
+        KL["kubelet<br/>/var/lib/kubelet/config.yaml<br/>containerRuntimeEndpoint"]
+        RT["containerd<br/>/run/containerd/containerd.sock"]
+        CNI["CNI 플러그인<br/>설정 /etc/cni/net.d/ (이름순 첫 파일)<br/>바이너리 /opt/cni/bin/"]
+        CSI["CSI 노드 플러그인<br/>(드라이버 DaemonSet)"]
+    end
+    KL -->|"① CRI (gRPC)"| RT
+    RT -->|"② CNI — 파드 네트워크 구성"| CNI
+    KL -->|"③ CSI — 볼륨 마운트"| CSI
+    KL -->|"런타임 이름·버전 보고"| API
+    CSI -.->|"드라이버 등록"| API
+```
+
+1. ① kubelet 은 `containerRuntimeEndpoint` 소켓으로 런타임과 CRI 로 대화하고, 런타임 이름과 버전을 노드 상태에 보고합니다. 그래서 1번은 `kubectl` 로, 2번은 노드 파일로 확인합니다.
+2. ② 파드 네트워크는 kubelet 이 아니라 **런타임**이 CNI 플러그인을 불러서 만듭니다. CNI 는 API 오브젝트가 없으니 노드의 `/etc/cni/net.d/` 를 직접 봐야 합니다(3번).
+3. ③ 볼륨은 kubelet 과 CSI 컨트롤러가 CSI 드라이버를 불러서 만들고 붙입니다. 드라이버는 CSIDriver 오브젝트로 클러스터에 등록되므로 `kubectl get csidrivers` 로 볼 수 있습니다(4번).
 
 ## 검증
 

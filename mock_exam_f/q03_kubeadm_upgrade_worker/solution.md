@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The control plane of cluster `k8s-c2` already runs Kubernetes v1.35.x, but node `worker01`
+> still runs v1.34. On `worker01` the apt repository already points to the Kubernetes v1.35
+> packages and `apt update` has already been run. Run `kubectl` commands from `k8s-c2`.
+>
+> 1. On `worker01`, upgrade `kubeadm` to exactly the version the control plane runs, then
+>    run the `kubeadm` upgrade step for a worker node.
+> 2. Drain `worker01`. Then upgrade `kubelet` and `kubectl` on `worker01` to the same
+>    version and restart the kubelet.
+> 3. Make `worker01` schedulable again and confirm that `kubectl get nodes` shows it `Ready`
+>    with the new version.
+
+**해석**
+
 클러스터 `k8s-c2` 의 컨트롤 플레인은 이미 Kubernetes v1.35.x 로 동작하지만, 노드 `worker01` 은 아직
 v1.34 다. `worker01` 의 apt 저장소는 이미 v1.35 패키지를 가리키고 `apt update` 도 실행되어 있다.
 `kubectl` 명령은 `k8s-c2` 에서 실행한다.
@@ -66,6 +81,31 @@ CoreDNS·kube-proxy 애드온을 올리는 작업이라 **첫 번째 컨트롤 �
 일상 업데이트가 쿠버네티스 버전을 모르게 올리지 못하게 하려는 것입니다. 그래서 올릴 때는 `unhold` →
 설치 → 다시 `hold` 입니다. hold 된 채로 `apt-get install -y kubeadm=...` 을 하면
 `Held packages were changed and -y was used without --allow-change-held-packages` 로 실패합니다.
+
+### 그림 — 어느 호스트에서 무엇을 하나
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant H as k8s-c2<br/>(kubectl)
+    participant W as worker01<br/>(root)
+    participant API as kube-apiserver<br/>(이미 v1.35)
+    H->>API: kubectl get nodes — 목표 버전 확인
+    W->>W: kubeadm 만 unhold → 1.35 설치 → hold
+    W->>API: kubeadm upgrade node<br/>(클러스터의 kubelet 설정을 받아 config.yaml 갱신)
+    H->>API: kubectl drain worker01 --ignore-daemonsets
+    Note over W: 파드가 다른 노드로 옮겨지고<br/>SchedulingDisabled
+    W->>W: kubelet·kubectl unhold → 1.35 설치 → hold
+    W->>W: systemctl daemon-reload · restart kubelet
+    W->>API: 새 kubelet 이 v1.35 로 노드 상태 보고
+    H->>API: kubectl uncordon worker01
+    H->>API: kubectl get nodes — worker01 Ready v1.35
+```
+
+1. `kubectl` 은 워커에 kubeconfig 가 없으니 작업 호스트(`k8s-c2`)에서, 패키지와 `kubeadm`·`systemctl` 은 `worker01` 에서 root 로 실행합니다.
+2. 워커의 `kubeadm upgrade node` 는 바이너리를 바꾸지 않습니다. 클러스터에 저장된 kubelet 설정을 받아 노드의 설정 파일만 새 버전에 맞춥니다. 그래서 drain 전에 해도 파드에 영향이 없습니다.
+3. 파드가 실제로 영향을 받는 것은 kubelet 재시작이므로, 그 직전에 drain 하고 끝난 뒤 uncordon 합니다.
+4. `kubectl get nodes` 의 VERSION 은 kubelet 이 보고하는 값입니다. kubelet 재시작 전에는 kubeadm 을 올려도 바뀌지 않습니다.
 
 ## 검증
 

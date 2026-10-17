@@ -4,6 +4,22 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Docker Engine is already installed on `worker03`. The node will later join a cluster that uses
+> Docker through cri-dockerd. Prepare the node, but do **not** join it to any cluster.
+>
+> 1. Install the package `/root/cri-dockerd.deb` with `dpkg`. Enable and start
+>    `cri-docker.service` and `cri-docker.socket` so that both are running now and after a reboot.
+> 2. Load the kernel module `br_netfilter` and make it load automatically at boot.
+> 3. Set these kernel parameters persistently and apply them without rebooting:
+>    - `net.bridge.bridge-nf-call-iptables = 1`
+>    - `net.ipv4.ip_forward = 1`
+>    - `net.netfilter.nf_conntrack_max = 131072`
+> 4. Verify with `crictl` that the runtime endpoint `unix:///var/run/cri-dockerd.sock` answers.
+
+**해석**
+
 `worker03` 에는 Docker Engine이 이미 설치되어 있다. 이 노드는 나중에 cri-dockerd를 통해 Docker를
 사용하는 클러스터에 join할 예정이다. 노드를 준비만 하고, 어떤 클러스터에도 join하지 **않는다**.
 
@@ -63,6 +79,30 @@ crictl --runtime-endpoint unix:///var/run/cri-dockerd.sock version
 # RuntimeName:  docker
 # RuntimeApiVersion:  v1
 ```
+
+### 그림 — kubelet 이 Docker 를 쓰는 경로
+
+```mermaid
+flowchart LR
+    K["kubelet<br/>(나중에 join 하면)"]
+    subgraph worker03
+        SOCK["cri-docker.socket<br/>/run/cri-dockerd.sock"]
+        SVC["cri-docker.service<br/>cri-dockerd 프로세스"]
+        D["dockerd<br/>Docker Engine"]
+        C["containerd<br/>(Docker 가 함께 띄움)"]
+        CR["crictl<br/>--runtime-endpoint<br/>unix:///var/run/cri-dockerd.sock"]
+    end
+    K -->|"CRI (gRPC)"| SOCK
+    CR -->|"CRI (gRPC)<br/>4번 확인"| SOCK
+    SOCK -->|"연결이 오면 넘김"| SVC
+    SVC -->|"Docker API 로 번역"| D
+    D --> C
+```
+
+1. v1.24 에서 dockershim 이 빠진 뒤 kubelet 은 CRI 로만 런타임과 대화합니다. Docker Engine 은 CRI 를 모르기 때문에 cri-dockerd 가 CRI 요청을 Docker API 로 번역합니다.
+2. `cri-docker.socket` 이 소켓 파일을 열어 두고, 연결이 오면 `cri-docker.service` 가 처리합니다. 그래서 둘 다 `enable --now` 해야 지금도, 재부팅 뒤에도 소켓이 응답합니다.
+3. `crictl` 은 kubelet 과 같은 CRI 클라이언트라서, kubelet 이 붙기 전에 이 소켓이 제대로 응답하는지 미리 확인할 수 있습니다.
+4. 노드에는 Docker 가 띄운 containerd 소켓도 따로 있습니다. 나중에 join 할 때 `--cri-socket unix:///var/run/cri-dockerd.sock` 으로 어느 소켓을 쓸지 정해 줍니다.
 
 ## 검증
 

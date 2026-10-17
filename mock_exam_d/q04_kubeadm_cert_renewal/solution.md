@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The cluster was built with kubeadm. The security team wants the API server's serving
+> certificate renewed now, without touching any other certificate. Work on `cp01` and write the
+> answer files there.
+>
+> 1. Save the output of `kubeadm certs check-expiration` to `/opt/course/d04/before.txt`.
+> 2. Renew only the `apiserver` certificate using kubeadm.
+> 3. Make the running kube-apiserver load the renewed certificate.
+> 4. Write the new expiry date (`notAfter`) of `/etc/kubernetes/pki/apiserver.crt`, as printed by
+>    `openssl`, to `/opt/course/d04/apiserver-enddate.txt`.
+
+**해석**
+
 클러스터는 kubeadm으로 구성되어 있다. 보안팀은 다른 인증서는 건드리지 않고 API 서버의 서빙 인증서만
 지금 갱신하기를 원한다. `cp01` 에서 작업하고 답 파일도 거기에 쓴다.
 
@@ -65,6 +79,29 @@ openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -enddate \
   | tee /opt/course/d04/apiserver-enddate.txt
 # notAfter=Sep 26 10:20:00 2027 GMT        ← 오늘부터 약 1년 뒤
 ```
+
+### 그림 — 파일 갱신과 프로세스 재시작은 별개다
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant K as kubeadm
+    participant D as 디스크<br/>/etc/kubernetes/pki/apiserver.crt
+    participant L as kubelet
+    participant A as kube-apiserver 컨테이너
+    Note over A: 시작할 때 읽은 옛 인증서를<br/>메모리에 들고 서비스 중
+    K->>D: certs renew apiserver<br/>(새 파일로 덮어씀)
+    Note over A: 여전히 옛 인증서로 응답
+    L->>A: 매니페스트가 디렉터리에서 사라짐 → 컨테이너 중지
+    L->>A: 매니페스트가 돌아옴 → 컨테이너 새로 시작
+    A->>D: 시작하면서 새 인증서 읽기
+    Note over A: 이제 새 인증서로 응답<br/>(openssl s_client 로 확인)
+```
+
+1. `kubeadm certs renew apiserver` 는 같은 CA 로 서명한 새 인증서를 **디스크에만** 씁니다. 다른 인증서와 kubeconfig 는 그대로입니다.
+2. 실행 중인 kube-apiserver 는 시작할 때 읽은 인증서를 계속 씁니다. 파일이 바뀌었다고 kubelet 이 정적 파드를 재시작해 주지도 않습니다.
+3. 매니페스트를 `/etc/kubernetes/manifests` 밖으로 옮기면 kubelet 이 그 정적 파드를 내리고, 되돌리면 새로 띄웁니다. 새 컨테이너가 시작하면서 새 인증서를 읽습니다.
+4. 그래서 확인도 두 가지입니다. 파일은 `openssl x509 -in ... -noout -enddate`, 실제 서빙 중인 인증서는 `openssl s_client -connect 127.0.0.1:6443` 입니다.
 
 ## 검증
 
