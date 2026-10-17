@@ -4,6 +4,29 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `gw`, Gateway `main-gw` has an address and its `http` listener is
+> `Programmed`. Services `shop-svc` (port `80`) and `api-svc` (port `8080`) are Running with
+> healthy endpoints. Two HTTPRoutes are meant to serve host `store.example.com` through that
+> listener: `store-route` sends `/` to `shop-svc`, and `api-route` sends `/api` to `api-svc`.
+> But `curl -H 'Host: store.example.com' http://<gw-address>/` returns `404` and `/api`
+> returns `500`.
+>
+> Fix the routing. Do **not** change the Gateway's listener configuration and do not change
+> either Service.
+>
+> 1. Write the `Accepted` and `ResolvedRefs` conditions of both HTTPRoutes, with their
+>    reasons, to `/opt/q14/conditions.txt`.
+> 2. Decide for each of the two failing paths whether the fault is route attachment,
+>    hostname matching, or backend resolution.
+> 3. Repair the routes so `/` reaches `shop-svc` and `/api` reaches `api-svc`.
+> 4. Verify both paths return `200` from the correct backend.
+> 5. Write the root cause of each symptom in one line each to `/opt/q14/cause.txt`, plus the
+>    status code you would expect instead if `api-svc` were valid but had no ready endpoints.
+
+**해석**
+
 `gw` 네임스페이스의 Gateway `main-gw` 는 주소를 가지고 있고 `http` listener는 `Programmed` 다.
 서비스 `shop-svc`(port `80`)와 `api-svc`(port `8080`)는 Running이고 endpoint도 정상이다.
 HTTPRoute 두 개가 그 listener로 호스트 `store.example.com` 을 서비스해야 한다 — `store-route` 는
@@ -100,6 +123,24 @@ spec:
 | `ResolvedRefs=False` + **500** | backendRef의 Service 이름·포트가 없음, 또는 다른 ns 참조에 ReferenceGrant 없음(`RefNotPermitted`) | 이름·포트 수정, ReferenceGrant 생성 |
 | 모든 condition True + **503** | backendRef는 유효하지만 Service에 ready endpoint가 없음 | `kubectl get endpointslice -l kubernetes.io/service-name=<svc>` |
 
+### 요청이 어디서 끊기나
+
+```mermaid
+flowchart LR
+    C["curl<br/>Host: store.example.com"] -->|"GW 주소:80"| N["NGINX 데이터 플레인<br/>= Gateway main-gw<br/>listener http · Programmed"]
+    N -->|"① Host 로 route 고르기"| H{"hostnames 가<br/>store.example.com 인 route"}
+    H -->|"store-route 는 shop.example.com<br/>→ / 에 맞는 규칙 없음"| E404["404<br/>(Gateway 가 직접 응답)"]
+    H -->|"api-route · PathPrefix /api"| B{"② backendRef 해석<br/>api-svc:80"}
+    B -->|"api-svc 에 port 80 없음<br/>ResolvedRefs=False"| E500["500<br/>(무효한 backendRef)"]
+    B -.->|"고친 뒤 api-svc:8080"| A["Service api-svc:8080<br/>→ 파드 :80 · 200 api-svc"]
+    H -.->|"고친 뒤 store-route · PathPrefix /"| S["Service shop-svc:80<br/>→ 파드 :80 · 200 shop-svc"]
+```
+
+1. 요청은 Gateway 주소의 80 포트로 들어와 listener `http` 에 닿습니다. listener 는 `Programmed` 이고 두 route 모두 붙어 있으므로(`attachedRoutes` 2) 여기까지는 문제가 없습니다.
+2. 데이터 플레인은 먼저 Host 헤더로 route 를 고릅니다. `store.example.com` 을 가진 route 는 `api-route` 하나뿐이고 그 route 에는 `/api` 규칙만 있습니다. 그래서 `/` 는 맞는 규칙이 없어 Gateway 가 404 를 직접 돌려줍니다. 백엔드 파드 로그에는 아무것도 찍히지 않습니다.
+3. `/api` 는 `api-route` 에 매칭되어 backendRef 단계까지 갑니다. 그런데 `api-svc:80` 은 존재하지 않는 Service 포트라 backendRef 가 무효이고, 스펙대로 500 이 나옵니다.
+4. `store-route` 의 hostname 을 `store.example.com` 으로, `api-route` 의 포트를 `8080` 으로 고치면 점선 경로가 됩니다. 두 route 가 같은 Host 아래에서 합쳐지고, 더 긴 prefix 인 `/api` 가 먼저 매칭됩니다.
+
 **4단계 — 수정.**
 
 ```bash
@@ -116,15 +157,26 @@ kubectl -n gw patch httproute api-route --type=json \
 
 **5번 답**: 원인은 위 두 줄이고, `api-svc` 가 유효한데 ready endpoint만 없었다면 스펙이 권고(SHOULD)하는
 응답은 **503** 입니다. 즉 404(매칭 route 없음) → 500(backendRef 무효) → 503(endpoint 없음) 순서로
-실패 단계가 깊어집니다.
+실패 단계가 깊어집니다. 503 은 MUST 가 아니라 SHOULD 라서 구현체에 따라 다른 5xx 가 나올 수도 있습니다.
+
+```bash
+cat > /opt/q14/cause.txt <<'EOF'
+/    404: store-route hostnames was shop.example.com, so no route matched Host store.example.com for / (hostname matching)
+/api 500: api-route backendRef pointed to api-svc port 80, but the Service only exposes 8080 (backend resolution, ResolvedRefs=False)
+valid api-svc with no ready endpoints: 503
+EOF
+```
+
+2번은 파일로 남기라는 요구가 없지만 `cause.txt` 의 괄호 안에 판단을 함께 적어 두면 채점자가 바로 확인할 수 있습니다.
 
 ## 검증
 
 ```bash
 ADDR=$(kubectl -n gw get gateway main-gw -o jsonpath='{.status.addresses[0].value}')
 
-curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: store.example.com' http://$ADDR/      # 200
-curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: store.example.com' http://$ADDR/api/  # 200
+curl -s -w ' %{http_code}\n' -H 'Host: store.example.com' http://$ADDR/      # shop-svc 200
+curl -s -w ' %{http_code}\n' -H 'Host: store.example.com' http://$ADDR/api   # api-svc 200
+# 주소에 닿지 않는 랩이면: kubectl -n gw get svc main-gw-nginx 로 NodePort 확인 → <노드IP>:<NodePort> 로 같은 curl
 
 for r in store-route api-route; do
   kubectl -n gw get httproute $r -o jsonpath=\
@@ -134,6 +186,10 @@ done
 
 kubectl -n gw get gateway main-gw -o jsonpath='{.status.listeners[0].attachedRoutes}{"\n"}'  # 2
 ```
+
+이 레포의 setup.sh 로 만든 백엔드는 어떤 경로든 `200` 과 자기 이름을 돌려주므로, 응답 본문(`shop-svc` / `api-svc`)이 4번의
+"올바른 backend" 확인이 됩니다. 시험장처럼 두 백엔드가 똑같은 기본 nginx 라면 `/api` 는 백엔드가 파일을 못 찾아 404 를 내므로,
+어느 쪽으로 갔는지는 `kubectl -n gw logs deploy/api-svc --tail=1` 처럼 **백엔드 파드의 access 로그**로 확인합니다.
 
 ## 오답 원인 / 배운 점
 
