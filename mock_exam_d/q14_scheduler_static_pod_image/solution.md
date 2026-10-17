@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Newly created pods stay `Pending` and show no events. `kubectl -n kube-system get pods` shows
+> `kube-scheduler-cp01` in `ImagePullBackOff`.
+>
+> 1. On `cp01`, find what is wrong in the kube-scheduler static pod manifest.
+> 2. Before changing it, copy the manifest to `/opt/course/d14/kube-scheduler.yaml.bak` on `cp01`.
+> 3. Fix the manifest so that kube-scheduler uses the same image tag as the kube-apiserver
+>    manifest.
+> 4. Confirm that `kube-scheduler-cp01` is `Running` and that a new pod `sched-test`
+>    (image `nginx:1.27`, namespace `default`) gets scheduled to a node.
+
+**해석**
+
 새로 만든 파드가 `Pending` 에 머물고 이벤트도 없다. `kubectl -n kube-system get pods` 에서
 `kube-scheduler-cp01` 이 `ImagePullBackOff` 로 보인다.
 
@@ -49,6 +63,43 @@ kubelet 재시작도 필요 없습니다. API에 보이는 `kube-scheduler-cp01`
 **백업은 반드시 매니페스트 디렉터리 밖에 둡니다.** kubelet은 확장자와 관계없이 `.` 으로 시작하지 않는
 **모든 파일**을 매니페스트로 읽습니다. `kube-scheduler.yaml.bak` 을 같은 디렉터리에 두면 kubelet이 그
 파일로도 정적 파드를 만들려 해서 고친 내용과 충돌합니다.
+
+### 그림 1 — 스케줄러가 없으면 왜 이벤트도 없는가
+
+```mermaid
+flowchart LR
+    P["새 파드<br/>spec.nodeName 비어 있음"] --> S{"kube-scheduler 가<br/>살아 있나?"}
+    S -->|"아니오"| N["아무도 심사하지 않음<br/>Pending · 이벤트 없음"]
+    S -->|"예, 맞는 노드 있음"| B["nodeName 기록<br/>→ 그 노드의 kubelet 이 실행"]
+    S -->|"예, 맞는 노드 없음"| FS["Pending<br/>+ FailedScheduling 이벤트"]
+```
+
+1. 파드를 만들면 API 서버는 `nodeName` 이 빈 채로 저장만 합니다. 노드를 고르는 일은 전부 kube-scheduler 가 합니다.
+2. 스케줄러가 떠 있으면 결과가 반드시 남습니다. 성공하면 `Scheduled` 이벤트와 `nodeName`, 실패하면 `FailedScheduling` 이벤트입니다.
+3. 그래서 "Pending 인데 이벤트가 하나도 없다"는 것은 스케줄러 자체가 없다는 신호입니다.
+
+### 그림 2 — 정적 파드는 파일이 원본이다
+
+```mermaid
+flowchart LR
+    subgraph CP["cp01"]
+        F["/etc/kubernetes/manifests/<br/>kube-scheduler.yaml"]
+        K["kubelet<br/>(디렉터리 감시)"]
+        CR["containerd<br/>이미지 pull"]
+    end
+    API["kube-apiserver"]
+    M["미러 파드<br/>kube-scheduler-cp01<br/>(보기 전용 사본)"]
+    U["kubectl edit / delete"]
+    F -->|"① 파일을 읽음"| K
+    K -->|"② 컨테이너 생성 요청"| CR
+    K -->|"③ 상태를 보고"| API
+    API --- M
+    U -.-x|"kubelet 은 따르지 않음"| M
+```
+
+1. kubelet 이 매니페스트 파일을 읽어(①) containerd 에 컨테이너를 만들라고 합니다(②). 태그가 틀리면 여기서 이미지를 받지 못해 `ImagePullBackOff` 가 됩니다.
+2. kubelet 은 API 서버에 미러 파드를 만들어 상태만 보여 줍니다(③). `kubectl` 로 보이는 `kube-scheduler-cp01` 이 이것입니다.
+3. 미러 파드를 `kubectl edit` 하거나 지워도 원본은 파일이라 kubelet 이 파일 내용대로 되돌립니다. 고치는 곳은 항상 파일이고, 저장하면 ①부터 다시 일어납니다.
 
 ## 검증
 

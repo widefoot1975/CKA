@@ -4,6 +4,18 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Node `worker02` of cluster `k8s-c1` is `NotReady`. The kubelet service on `worker02` is running.
+>
+> 1. On `worker02`, use the kubelet journal to find out why the node is `NotReady`.
+> 2. Fix the cause so that the fix also survives a reboot of `worker02`.
+> 3. Write the name of the systemd service that caused the problem to `/opt/course/e14/cause.txt`
+>    on `worker02`.
+> 4. Confirm that `worker02` becomes `Ready`.
+
+**해석**
+
 `k8s-c1` 클러스터의 노드 `worker02` 가 `NotReady` 다. `worker02` 의 kubelet 서비스는 실행 중이다.
 
 1. `worker02` 에서 kubelet journal로 노드가 `NotReady` 인 이유를 찾는다.
@@ -57,6 +69,27 @@ echo containerd > /opt/course/e14/cause.txt
 `start` 만 하면 지금은 Ready가 되지만 `disabled` 가 그대로라 재부팅하면 같은 장애가 납니다. kubelet은
 containerd가 돌아오면 스스로 다시 연결하므로 보통 kubelet 재시작은 필요 없습니다(1분이 지나도
 NotReady면 `systemctl restart kubelet`).
+
+### 그림 — kubelet 은 살아 있는데 왜 NotReady 인가
+
+```mermaid
+flowchart LR
+    API["kube-apiserver<br/>(컨트롤 플레인)"]
+    subgraph W["worker02"]
+        K["kubelet<br/>active"]
+        SOCK["/run/containerd/<br/>containerd.sock"]
+        CD["containerd<br/>inactive · disabled"]
+        C["이미 떠 있던 컨테이너<br/>(shim 이 붙들고 있어 계속 실행)"]
+    end
+    K -->|"노드 상태 보고<br/>Ready=False<br/>container runtime is down"| API
+    K -.-x|"CRI 호출 실패<br/>connect: no such file or directory"| SOCK
+    SOCK --- CD
+    CD -.-> C
+```
+
+1. kubelet 은 컨테이너를 직접 만들지 않고, CRI 소켓(`containerd.sock`)으로 containerd 에 요청합니다. containerd 가 멈추면 소켓 파일도 사라져 kubelet 의 모든 CRI 호출이 실패합니다.
+2. kubelet 자신은 살아 있으므로 API 서버에 계속 보고합니다. 그래서 `Ready=Unknown` 이 아니라 `Ready=False` 와 "runtime is down" 계열 메시지가 보입니다. kubelet journal 에 소켓 경로가 찍히는 이유도 같습니다.
+3. 이미 떠 있던 컨테이너는 containerd-shim 이 붙들고 있어 바로 죽지 않습니다. 하지만 kubelet 이 상태를 확인하거나 새 컨테이너를 만들 수 없으니 노드는 NotReady 입니다. `systemctl enable --now containerd` 로 소켓이 돌아오면 kubelet 이 스스로 다시 연결합니다.
 
 ## 검증
 

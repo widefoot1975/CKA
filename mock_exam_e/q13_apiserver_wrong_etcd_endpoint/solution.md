@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The single-node cluster `k8s-c2` was moved to a new machine, `cp01`. Since the move, every
+> `kubectl` command fails with `The connection to the server ... was refused`. etcd and the kubelet
+> on `cp01` are running normally.
+>
+> 1. On `cp01`, find out why kube-apiserver does not stay up. Use the container runtime and the
+>    static pod manifest; `kubectl` cannot help until the API server works.
+> 2. Fix the kube-apiserver static pod manifest. Keep a backup copy of the original file outside
+>    `/etc/kubernetes/manifests`.
+> 3. Write the wrong setting value you found to `/opt/course/e13/cause.txt`.
+> 4. Confirm that `kubectl get nodes` works again and shows `cp01` as `Ready`.
+
+**해석**
+
 단일 노드 클러스터 `k8s-c2` 를 새 머신 `cp01` 로 옮겼다. 옮긴 뒤로 모든 `kubectl` 명령이
 `The connection to the server ... was refused` 로 실패한다. `cp01` 의 etcd와 kubelet은 정상 실행 중이다.
 
@@ -64,6 +79,26 @@ grep -rn '10.0.5.20' /etc/kubernetes/manifests/     # 옛 주소가 다른 곳�
 mkdir -p /opt/course/e13
 echo 'https://10.0.5.20:2379' > /opt/course/e13/cause.txt      # 1)~2)에서 찾은 값 그대로
 ```
+
+### 그림 — 머신을 옮긴 뒤 무엇이 끊겼나
+
+```mermaid
+flowchart LR
+    U["kubectl"] -.-x|"6443 connection refused<br/>(받는 프로세스 없음)"| A
+    subgraph CP["cp01 (새 머신)"]
+        K["kubelet"]
+        A["kube-apiserver<br/>시작 → 종료 반복"]
+        E["etcd<br/>127.0.0.1:2379 · 정상"]
+    end
+    OLD["옛 머신 10.0.5.20:2379<br/>(이제 없음)"]
+    K -->|"매니페스트대로 계속 재시작"| A
+    A -.-x|"--etcd-servers 가 옛 주소<br/>dial tcp ... i/o timeout"| OLD
+    A -->|"고친 뒤<br/>https://127.0.0.1:2379"| E
+```
+
+1. kube-apiserver 는 시작할 때 `--etcd-servers` 로 etcd 에 붙습니다. 값이 옛 머신 주소로 남아 있으면 연결이 안 되고, 잠시 뒤 스스로 종료합니다.
+2. kubelet 은 매니페스트대로 컨테이너를 계속 다시 띄웁니다. 그래서 `crictl ps -a` 의 ATTEMPT 가 늘고, 6443 에는 대부분의 시간 동안 아무도 없어 `kubectl` 이 `connection refused` 를 받습니다.
+3. etcd 는 같은 머신의 127.0.0.1:2379 에서 멀쩡히 기다리고 있습니다. 주소만 그쪽으로 바꾸면 API 서버가 붙고, kubelet 이 새 매니페스트로 파드를 다시 만듭니다.
 
 ## 검증
 
