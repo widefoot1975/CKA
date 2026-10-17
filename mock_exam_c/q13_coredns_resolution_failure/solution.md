@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Pods across the cluster cannot resolve any name. `curl http://backend.app.svc.cluster.local`
+> fails with a lookup error from inside every pod, but `curl http://10.244.2.14` (a pod IP)
+> works. External names such as `kubernetes.io` also fail.
+>
+> 1. Confirm from inside a pod that this is a DNS failure and not a routing failure.
+> 2. Work out which layer is broken: the pod's resolver config, the `kube-dns` Service, the
+>    CoreDNS pods, or the CoreDNS configuration.
+> 3. Fix the cluster so that both in-cluster Service names and external names resolve.
+> 4. Write the root cause in one sentence to `/opt/course/q13/cause.txt`.
+> 5. Do not delete the `kube-dns` Service and do not change any pod's `dnsPolicy`.
+
+**해석**
+
 클러스터 전체의 파드가 어떤 이름도 해석하지 못한다. 모든 파드 내부에서
 `curl http://backend.app.svc.cluster.local` 이 lookup 오류로 실패하지만
 `curl http://10.244.2.14` (파드 IP)는 동작한다. `kubernetes.io` 같은 외부 이름도 실패한다.
@@ -25,11 +40,15 @@ cat /etc/resolv.conf
 #   nameserver 10.96.0.10
 #   search default.svc.cluster.local svc.cluster.local cluster.local
 #   options ndots:5
-nslookup kubernetes.default          # ;; connection timed out; no servers could be reached
+nslookup kubernetes.default          # ;; communications error to 10.96.0.10#53: connection refused
+                                     # (kube-proxy 모드에 따라 ;; connection timed out; no servers could be reached)
 nslookup kubernetes.default 10.96.0.10
 ```
 
-`/etc/resolv.conf` 의 nameserver가 정상인데 응답이 없으면 파드 설정 문제는 아닙니다.
+`/etc/resolv.conf` 의 nameserver가 정상인데 응답이 없으면 파드 설정 문제는 아닙니다. 같은 파드에서
+파드 IP로 `curl` 이 되면 라우팅(CNI)도 정상이므로 DNS 경로만 따라가면 됩니다.
+엔드포인트가 없는 Service로 보낸 UDP는 kube-proxy(iptables)가 거부(REJECT)하므로 보통 바로
+`connection refused` 가 나옵니다.
 
 **2) 위에서 아래로 좁히기**
 
@@ -42,6 +61,7 @@ kubectl -n kube-system get endpointslice -l kubernetes.io/service-name=kube-dns 
 kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide
 kubectl -n kube-system describe pod <coredns-xxx>
 kubectl -n kube-system logs -l k8s-app=kube-dns --tail=50
+kubectl -n kube-system logs <coredns-xxx> --previous   # CrashLoop 중이면 직전에 죽은 컨테이너의 로그
 
 # 설정
 kubectl -n kube-system get cm coredns -o yaml
@@ -53,17 +73,27 @@ kubectl -n kube-system get cm coredns -o yaml
 |---|---|---|
 | kube-dns EndpointSlice 가 비어 있음 | CoreDNS 파드가 0개 또는 Ready 아님 | 아래 행들로 계속 |
 | CoreDNS `Pending` | 컨트롤 플레인 테인트만 있는 클러스터에서 레플리카 배치 실패, 리소스 부족 | `describe pod` 의 Events, 노드 여유 확인 |
-| CoreDNS `CrashLoopBackOff`, 로그에 `plugin/errors ... Corefile:N` | Corefile 문법 오류 | ConfigMap 수정 후 파드 재시작 |
+| CoreDNS `CrashLoopBackOff`, 로그에 `/etc/coredns/Corefile:N - Error during parsing: ...` | Corefile 문법 오류 (오타, 괄호 짝) | ConfigMap 수정 후 파드 재시작 |
 | CoreDNS 로그에 `Loop ... detected` | upstream이 자기 자신을 가리킴 (`forward . /etc/resolv.conf` + 노드 resolv.conf가 127.0.0.53) | `forward . 8.8.8.8` 등 실제 upstream으로 |
 | 파드 Running·Ready인데 무응답, resolv.conf의 IP ≠ svc ClusterIP | kubelet의 `clusterDNS` 불일치 | 아래 참조 |
 | 내부만 되고 외부만 안 됨 | `forward` 블록 누락/오류 | Corefile의 `forward` 수정 |
 | 전부 안 되고 `iptables` 에 KUBE-SVC 룰 없음 | kube-proxy 문제 | q17 참조 |
 
 **3) 가장 흔한 실제 원인 — Corefile 손상**. `kubernetes` 또는 `forward` 플러그인 줄이 깨져
-CoreDNS가 CrashLoop에 빠진 경우입니다.
+CoreDNS가 CrashLoop에 빠진 경우입니다. 이 문제의 setup 에서는 이렇게 보입니다.
 
 ```bash
-kubectl -n kube-system edit cm coredns
+kubectl -n kube-system get pods -l k8s-app=kube-dns
+# coredns-xxxx   0/1   CrashLoopBackOff   3 (20s ago)   ...
+kubectl -n kube-system logs <coredns-xxx> --previous
+# /etc/coredns/Corefile:7 - Error during parsing: Unknown directive 'kubernets'
+```
+
+로그의 `Corefile:7` 이 줄 번호(kubeadm 기본 Corefile 기준), `Unknown directive 'kubernets'` 가 원인입니다. 플러그인 이름 `kubernetes` 가
+`kubernets` 로 잘못 적혀 CoreDNS가 설정을 읽다가 바로 종료합니다.
+
+```bash
+kubectl -n kube-system edit cm coredns     # kubernets → kubernetes
 ```
 
 정상 Corefile:
@@ -96,8 +126,9 @@ kubectl -n kube-system edit cm coredns
 실패하므로 파드 자체가 살아 있지 않다는 신호입니다.
 
 ConfigMap을 고쳐도 **CoreDNS는 자동 반영되지 않을 수 있습니다.** Corefile에 `reload` 플러그인이
-있으면 약 30초 내에 다시 읽지만, CrashLoopBackOff 상태라면 프로세스가 살아 있지 않으므로
-재시작해야 합니다.
+있으면 살아 있는 프로세스는 바뀐 파일을 다시 읽지만(ConfigMap이 파드에 전파되는 시간까지 1~2분),
+CrashLoopBackOff 상태라면 프로세스가 살아 있지 않고 다음 재시작은 백오프로 미뤄지므로 바로
+재시작합니다.
 
 ```bash
 kubectl -n kube-system rollout restart deploy coredns
@@ -114,11 +145,31 @@ systemctl restart kubelet                        # 수정했다면
 
 이미 뜬 파드의 `resolv.conf` 는 다시 쓰이지 않으므로 파드를 재생성해야 반영됩니다.
 
+### 그림 — 위에서 아래로 좁혀 가는 DNS 경로
+
+```mermaid
+flowchart TD
+    P["아무 파드<br/>/etc/resolv.conf<br/>nameserver 10.96.0.10"]
+    S["Service kube-dns<br/>ClusterIP 10.96.0.10 · 53/UDP·TCP"]
+    ES["EndpointSlice kube-dns-xxxxx<br/>ENDPOINTS 비어 있음"]
+    POD["CoreDNS 파드 2개<br/>label k8s-app=kube-dns<br/>0/1 CrashLoopBackOff"]
+    CM["ConfigMap coredns · Corefile<br/>kubernets cluster.local ...  ← 원인"]
+    P -->|"① DNS 질의"| S
+    S -->|"② selector k8s-app=kube-dns"| ES
+    ES -.->|"③ Ready 인 파드가 없음"| POD
+    CM -->|"④ /etc/coredns/Corefile 로 마운트<br/>읽다가 Unknown directive 로 종료"| POD
+```
+
+1. 파드의 질의는 `resolv.conf` 의 nameserver, 즉 Service `kube-dns` 의 ClusterIP 로 갑니다. 이 값이 `kubectl -n kube-system get svc kube-dns` 의 CLUSTER-IP 와 같으면 파드 리졸버 설정(문제 2번의 첫 계층)은 정상입니다.
+2. Service 는 selector `k8s-app=kube-dns` 로 EndpointSlice 를 채웁니다. 여기가 비어 있으면 질의를 받을 곳이 없어 내부·외부 이름이 모두 실패합니다. Service 자체는 멀쩡하므로 지우거나 다시 만들 이유가 없습니다.
+3. 엔드포인트가 빈 이유는 CoreDNS 파드가 Ready 가 아니기 때문입니다. 파드는 있지만 `CrashLoopBackOff` 이므로 레플리카 수가 아니라 컨테이너가 죽는 이유를 봐야 하고, `logs --previous` 가 그것을 보여 줍니다.
+4. 맨 아래 원인은 ConfigMap `coredns` 의 Corefile 입니다. 오타를 고치고 `rollout restart` 하면 파드가 Ready 가 되고 EndpointSlice 와 Service 가 차례로 살아납니다.
+
 **4) 원인 기록**
 
 ```bash
 mkdir -p /opt/course/q13
-echo "coredns ConfigMap의 Corefile 문법 오류로 CoreDNS 파드가 CrashLoopBackOff에 빠져 kube-dns 엔드포인트가 비어 있었다." \
+echo "coredns ConfigMap의 Corefile에 kubernetes 플러그인 이름이 kubernets로 잘못 적혀 CoreDNS 파드가 CrashLoopBackOff에 빠졌고, kube-dns 엔드포인트가 비어 모든 이름 해석이 실패했다." \
   > /opt/course/q13/cause.txt
 ```
 
@@ -126,7 +177,7 @@ echo "coredns ConfigMap의 Corefile 문법 오류로 CoreDNS 파드가 CrashLoop
 
 ```bash
 kubectl -n kube-system get pods -l k8s-app=kube-dns
-# 2/2 Running, RESTARTS 증가 멈춤
+# 파드 2개 모두 1/1 Running, RESTARTS 증가 멈춤
 kubectl -n kube-system get endpointslice -l kubernetes.io/service-name=kube-dns
 # ENDPOINTS 에 CoreDNS 파드 IP 두 개
 
