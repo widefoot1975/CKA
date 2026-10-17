@@ -4,6 +4,19 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Node `worker02` became `NotReady` shortly after someone edited the kubelet configuration
+> file `/var/lib/kubelet/config.yaml` on that node. containerd on `worker02` is running
+> normally.
+>
+> 1. On `worker02`, find out why the kubelet does not stay running. Write the wrong
+>    configuration value you found to `/opt/course/f13/cause.txt` on `worker02`.
+> 2. Fix the configuration and restart the kubelet.
+> 3. Confirm from `k8s-c1` that `worker02` is `Ready`.
+
+**해석**
+
 누군가 노드 `worker02` 의 kubelet 설정 파일 `/var/lib/kubelet/config.yaml` 을 고친 직후 `worker02` 가
 `NotReady` 가 되었다. `worker02` 의 containerd 는 정상 동작 중이다.
 
@@ -53,6 +66,28 @@ systemctl restart kubelet
 `daemon-reload` 는 필요 없습니다. `config.yaml` 은 kubelet 이 시작할 때 읽는 kubelet 자신의 설정
 파일이고 systemd 는 이 파일을 모릅니다. `daemon-reload` 는 유닛 파일이나 드롭인(`kubelet.service.d/`)을
 고쳤을 때만 필요합니다.
+
+### 그림 — kubelet 이 시작하다 멈추는 곳
+
+```mermaid
+flowchart LR
+    SD["systemd<br/>kubelet.service<br/>Restart=always"]
+    K["kubelet 시작<br/>config.yaml 읽기"]
+    SOK["unix:///run/containerd/<br/>containerd.sok<br/>(파일 없음)"]
+    SOCK["unix:///run/containerd/<br/>containerd.sock"]
+    CT["containerd<br/>(정상 동작)"]
+    API["API server<br/>노드 상태 보고"]
+    SD -->|"실행"| K
+    K -.-x|"CRI 연결 실패<br/>no such file or directory"| SOK
+    K -.->|"오류로 종료 → 몇 초 뒤 재시작<br/>activating (auto-restart)"| SD
+    SOCK --- CT
+    K -.-x|"보고가 끊김 → NotReady"| API
+```
+
+1. systemd 가 kubelet 을 띄우면 kubelet 은 먼저 `config.yaml` 을 읽고, `containerRuntimeEndpoint` 의 소켓으로 런타임(CRI)에 연결해 봅니다.
+2. 경로가 `.sok` 로 틀려 그 파일이 없으므로 연결이 실패하고 kubelet 이 바로 종료됩니다. containerd 는 진짜 소켓 `.sock` 에서 정상으로 기다리고 있습니다.
+3. `Restart=always` 때문에 systemd 가 계속 다시 띄우지만 같은 오류로 또 죽습니다. `systemctl status` 의 `activating (auto-restart)` 가 이 상태입니다.
+4. kubelet 이 API server 에 상태를 보내지 못하니 컨트롤 플레인은 일정 시간 뒤 노드를 `NotReady` 로 표시합니다. `.sock` 으로 고치고 재시작하면 보고가 다시 시작되어 `Ready` 로 돌아옵니다.
 
 ## 검증
 

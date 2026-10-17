@@ -4,6 +4,25 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> On `k8s-c1`, every `kubectl` command fails, for example:
+>
+> ```
+> $ kubectl get nodes
+> The connection to the server cp01:6444 was refused - did you specify the right host or port?
+> ```
+>
+> The API server itself is running normally on `cp01`, port `6443`. `kubectl` on `k8s-c1`
+> uses the kubeconfig file `~/.kube/config`.
+>
+> 1. Without using `kubectl`, show that the API server answers on `https://cp01:6443/livez`.
+> 2. Write the wrong server URL that is currently configured in `~/.kube/config` to
+>    `/opt/course/f14/cause.txt`.
+> 3. Fix `~/.kube/config` so that `kubectl get nodes` works again.
+
+**해석**
+
 `k8s-c1` 에서 모든 `kubectl` 명령이 실패한다. 예를 들어 `kubectl get nodes` 가
 `The connection to the server cp01:6444 was refused - did you specify the right host or port?` 를 낸다.
 API server 자체는 `cp01` 의 포트 `6443` 에서 정상 동작 중이다. `k8s-c1` 의 `kubectl` 은 kubeconfig 파일
@@ -50,6 +69,27 @@ kubectl config set-cluster kubernetes --server=https://cp01:6443
 | `x509: certificate signed by unknown authority` | TLS | kubeconfig 의 CA 가 클러스터 CA 와 다름 |
 | `Unauthorized` (401) | 인증 | 클라이언트 인증서·토큰 만료 또는 잘못됨 |
 | `Forbidden` (403) | 인가 | RBAC 권한 없음 |
+
+### 그림 — kubectl 과 curl 이 가는 주소
+
+```mermaid
+flowchart LR
+    KC["~/.kube/config<br/>server: https://cp01:6444"]
+    K["kubectl get nodes"]
+    C["curl -k https://cp01:6443/livez"]
+    subgraph CP["cp01"]
+        P6444[":6444<br/>듣는 프로세스 없음"]
+        P6443[":6443<br/>kube-apiserver"]
+    end
+    KC -->|"server 주소를 읽음"| K
+    K -.-x|"connection refused"| P6444
+    C -->|"ok"| P6443
+```
+
+1. kubectl 은 매번 kubeconfig 의 `server:` 주소로 접속합니다. 그 값이 `:6444` 로 틀려 있습니다.
+2. `cp01` 의 6444 에는 듣는 프로세스가 없어 운영체제가 연결을 바로 거부합니다. 호스트에는 닿았으므로 오류는 타임아웃이 아니라 `connection refused` 입니다.
+3. kubectl 을 거치지 않는 `curl` 로 6443 의 `/livez` 를 찌르면 `ok` 가 옵니다. 서버는 멀쩡하고 클라이언트 설정이 문제라는 것이 이 한 줄로 갈립니다.
+4. `kubectl config set-cluster` 는 파일만 고치는 명령이라 서버에 닿지 않아도 동작합니다. 주소를 `:6443` 으로 바꾸면 kubectl 도 curl 과 같은 곳에 닿습니다.
 
 ## 검증
 

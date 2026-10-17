@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `shop`, Deployment `payments` runs 2 Pods (image `nginx:1.27`, label
+> `app=payments`) that are `Running` and `Ready`. Service `payments` (port `80`) selects
+> them and has endpoints, but every request to the Service fails with `connection refused`.
+>
+> 1. Find out why requests are refused although the Service has endpoints.
+> 2. Fix Service `payments`. Do not change the Deployment.
+> 3. Verify that the EndpointSlice of `payments` now lists the port the Pods actually
+>    listen on, and that `wget -qO- http://payments` from a temporary `busybox:1.36` Pod in
+>    namespace `shop` returns the nginx welcome page.
+
+**해석**
+
 네임스페이스 `shop` 의 Deployment `payments` 는 `Running` 이고 `Ready` 인 파드 2개(image `nginx:1.27`,
 라벨 `app=payments`)를 실행한다. Service `payments`(포트 `80`)는 그 파드들을 선택하고 엔드포인트도 있지만,
 Service 로 가는 모든 요청이 `connection refused` 로 실패한다.
@@ -52,6 +66,27 @@ kube-proxy 는 ClusterIP:80 으로 온 요청을 `파드IP:targetPort`(여기서
 | `port` | Service | 클라이언트가 접속하는 Service 포트 |
 | `targetPort` | Service | 트래픽을 넘길 **파드의** 포트. EndpointSlice 의 PORTS 에 이 값이 나온다 |
 | `containerPort` | Pod | 정보용 선언. 실제로 어느 포트를 여는지는 프로세스(nginx: 80)가 정한다 |
+
+### 그림 — 요청이 어디서 거부되는가
+
+```mermaid
+flowchart LR
+    C["busybox 파드<br/>wget http://payments"]
+    S["Service payments<br/>ClusterIP:80<br/>targetPort 8080"]
+    ES["EndpointSlice<br/>파드IP 두 개 · PORTS 8080"]
+    P1["payments 파드 1<br/>nginx 는 :80 에서만 듣는다"]
+    P2["payments 파드 2<br/>nginx 는 :80 에서만 듣는다"]
+    C -->|"ClusterIP:80"| S
+    S -.->|"selector app=payments<br/>Ready 파드만"| ES
+    S -->|"kube-proxy 가<br/>파드IP:8080 으로 DNAT"| P1
+    S -->|"파드IP:8080"| P2
+    P1 -.-x|"8080 에 듣는 프로세스 없음<br/>→ Connection refused"| C
+```
+
+1. 클라이언트는 Service 의 `port`(80)로 접속합니다. 여기까지는 문제가 없습니다.
+2. EndpointSlice 는 selector 와 파드의 Ready 상태만 보고 만들어지므로 주소가 두 개 다 채워집니다. 포트 칸에는 Service 의 `targetPort`(8080)가 그대로 들어갑니다.
+3. kube-proxy 는 요청을 `파드IP:8080` 으로 넘기는데 nginx 는 80 에서만 듣고 있어, 파드의 커널이 연결을 거부합니다(RST). 그래서 타임아웃이 아니라 `connection refused` 가 바로 돌아옵니다.
+4. `targetPort` 를 80 으로 고치면 EndpointSlice 의 PORTS 가 80 으로 바뀌고, 같은 경로로 nginx 에 닿습니다.
 
 ## 검증
 

@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In cluster `k8s-c1`, pods can no longer resolve any DNS name, not even `kubernetes.default`.
+> Connections to pod IP addresses still work.
+>
+> 1. Find out why cluster DNS does not answer. Start from Service `kube-dns` in namespace
+>    `kube-system` and its EndpointSlice.
+> 2. Fix the problem so that cluster DNS runs with `2` replicas again.
+> 3. Write the kind and name of the object you had to fix, in the form `<kind>/<name>` (for example
+>    `daemonset/foo`), to `/opt/course/e16/cause.txt`.
+> 4. From a temporary `busybox:1.36` pod, confirm that
+>    `nslookup kubernetes.default.svc.cluster.local` succeeds.
+
+**해석**
+
 `k8s-c1` 클러스터에서 파드들이 `kubernetes.default` 를 포함해 어떤 DNS 이름도 해석하지 못한다. 파드
 IP 주소로의 연결은 여전히 동작한다.
 
@@ -48,6 +63,26 @@ kubectl -n kube-system rollout status deploy coredns
 mkdir -p /opt/course/e16
 echo deployment/coredns > /opt/course/e16/cause.txt
 ```
+
+### 그림 — 이름 세 개를 따라 내려가기
+
+```mermaid
+flowchart TD
+    P["아무 파드<br/>/etc/resolv.conf<br/>nameserver 10.96.0.10"]
+    S["Service kube-dns<br/>ClusterIP 10.96.0.10 · 53/UDP·TCP"]
+    ES["EndpointSlice kube-dns-xxxxx<br/>ENDPOINTS 비어 있음"]
+    POD["CoreDNS 파드<br/>label k8s-app=kube-dns<br/>0개"]
+    D["Deployment coredns<br/>replicas: 0  ← 원인"]
+    P -->|"DNS 질의"| S
+    S -->|"selector k8s-app=kube-dns"| ES
+    ES -.->|"선택할 파드가 없음"| POD
+    D -->|"파드를 만들지 않음"| POD
+```
+
+1. 파드의 DNS 질의는 `resolv.conf` 의 `nameserver`, 즉 Service `kube-dns` 의 ClusterIP 로 갑니다. Service 와 ClusterIP 는 멀쩡하므로 여기까지는 정상입니다.
+2. Service 는 selector `k8s-app=kube-dns` 로 EndpointSlice 를 채우는데 엔드포인트가 비어 있습니다. 질의를 받아 줄 곳이 없으니 모든 이름 해석이 실패합니다.
+3. 그 라벨의 파드를 찾으면 0개이고, 파드를 만드는 주인인 Deployment `coredns` 가 `0/0` 입니다. 맨 아래의 이 오브젝트를 `scale --replicas=2` 로 고치면 위쪽이 차례로 채워집니다.
+4. 파드 IP 로의 연결이 된다는 문제 조건은 CNI·라우팅이 정상이라는 뜻입니다. 그래서 네트워크가 아니라 DNS 경로만 따라가면 됩니다.
 
 ## 검증
 

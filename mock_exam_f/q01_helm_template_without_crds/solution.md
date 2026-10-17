@@ -4,6 +4,24 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> The Argo CD CustomResourceDefinitions (`*.argoproj.io`) are already installed in the
+> cluster and are managed outside of Helm. Argo CD itself must now be installed with Helm,
+> without the chart creating or managing those CRDs.
+>
+> 1. Add the chart repository `https://argoproj.github.io/argo-helm` with the name `argo`.
+>    Write the latest version of chart `argo/argo-cd` shown by `helm search repo` to
+>    `/opt/course/f01/version.txt`, and use exactly that version in the next steps.
+> 2. Render the chart with `helm template` using release name `argocd`, namespace `argocd`
+>    and the value `crds.install=false`. Save the output to `/opt/course/f01/argocd.yaml`.
+> 3. Install release `argocd` into namespace `argocd` (create the namespace) with the same
+>    chart version and the same value.
+> 4. Confirm that `/opt/course/f01/argocd.yaml` contains no `kind: CustomResourceDefinition`
+>    and that `helm list -n argocd` shows the release as `deployed`.
+
+**해석**
+
 Argo CD의 CustomResourceDefinition(`*.argoproj.io`)은 이미 클러스터에 설치되어 있고 Helm 밖에서
 관리된다. 이제 Argo CD 자체를 Helm으로 설치하되, 차트가 그 CRD를 만들거나 관리하지 않게 해야 한다.
 
@@ -60,6 +78,30 @@ argo-cd 차트는 CRD를 `templates/` 안에 두고 `crds.install` 값으로 감
 값을 끄지 않고 설치하면 Helm이 이미 있는 CRD를 자기 릴리스에 포함시키려다가
 `... exists and cannot be imported into the current release: invalid ownership metadata` 오류로 설치가
 실패합니다. 문제의 "CRD는 Helm 밖에서 관리된다"는 조건이 바로 이 값을 꺼야 하는 이유입니다.
+
+### 그림 — CRD 는 누가 관리하는가
+
+```mermaid
+flowchart LR
+    subgraph OUT["Helm 밖 (kubectl apply)"]
+        CRD["CRD 3개<br/>applications · applicationsets<br/>appprojects .argoproj.io"]
+    end
+    subgraph CH["차트 argo/argo-cd"]
+        T1["templates/crds/*<br/>{{ if .Values.crds.install }}"]
+        T2["templates/ 나머지<br/>Deployment · Service · RBAC ..."]
+    end
+    V["값 crds.install=false"]
+    R["릴리스 argocd<br/>(namespace argocd)"]
+    V -->|"조건이 거짓 → 렌더링 안 됨"| T1
+    T2 -->|"helm template / install"| R
+    T1 -.-x|"릴리스에 포함 안 됨"| R
+    R -.->|"argoproj.io 리소스를 쓰기만 함"| CRD
+```
+
+1. CRD 세 개는 `kubectl` 로 미리 설치되어 있고 Helm 의 라벨·어노테이션이 없습니다. Helm 입장에서는 "남이 만든 오브젝트"입니다.
+2. argo-cd 차트는 CRD 를 `templates/` 안에 두고 `crds.install` 값으로 감쌉니다. 이 값을 `false` 로 주면 그 템플릿이 아예 렌더링되지 않습니다.
+3. 그래서 `helm template` 출력에도, `helm install` 로 만든 릴리스에도 CRD 가 들어가지 않고, Argo CD 컴포넌트만 설치됩니다.
+4. 값을 빼먹으면 Helm 이 이미 있는 CRD 를 릴리스에 넣으려다 `invalid ownership metadata` 로 설치가 실패합니다. 이 차트에는 `--skip-crds` 가 통하지 않는 이유도 2번과 같습니다.
 
 ## 검증
 

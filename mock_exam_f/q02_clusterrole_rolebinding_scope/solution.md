@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> User `dev-anna` needs read-only access to Deployments, but only in namespace `team-a`.
+> Namespaces `team-a` and `team-b` already exist. The permissions must be defined once, at
+> cluster level, so that they can be reused for other namespaces later.
+>
+> 1. Create ClusterRole `deployment-viewer` that allows the verbs `get`, `list` and `watch`
+>    on `deployments` in API group `apps`.
+> 2. Grant `deployment-viewer` to user `dev-anna` **only in namespace `team-a`**, using a
+>    binding named `anna-deploy-view`.
+> 3. Verify with `kubectl auth can-i ... --as=dev-anna` that `dev-anna` can list Deployments
+>    in `team-a`, but not in `team-b` and not across all namespaces.
+
+**해석**
+
 사용자 `dev-anna` 는 Deployment 읽기 권한이 필요하지만 네임스페이스 `team-a` 에서만이다. 네임스페이스
 `team-a` 와 `team-b` 는 이미 있다. 권한은 나중에 다른 네임스페이스에도 재사용할 수 있도록 클러스터
 수준에서 한 번만 정의해야 한다.
@@ -50,6 +65,30 @@ subjects:
 ClusterRole 은 "무엇을 할 수 있나"만 정의하고 "어디서"는 바인딩이 정합니다. 나중에 `team-c` 에도 같은
 권한이 필요하면 ClusterRole 은 그대로 두고 `team-c` 에 RoleBinding 하나만 더 만들면 됩니다. 여기서
 ClusterRoleBinding 을 쓰면 `dev-anna` 가 모든 네임스페이스의 Deployment 를 보게 되어 조건을 어깁니다.
+
+### 그림 — 권한 정의와 적용 범위는 따로 정한다
+
+```mermaid
+flowchart LR
+    CR["ClusterRole deployment-viewer<br/>apps/deployments<br/>get · list · watch<br/>(무엇을)"]
+    subgraph TA["namespace team-a"]
+        RB["RoleBinding anna-deploy-view<br/>roleRef → ClusterRole<br/>subject: User dev-anna<br/>(어디서)"]
+        DA["Deployment web-a"]
+    end
+    subgraph TB["namespace team-b"]
+        DB["Deployment web-b"]
+    end
+    U["User dev-anna"]
+    CR --> RB
+    U --> RB
+    RB -->|"list 허용"| DA
+    U -.-x|"바인딩 없음 → 거부"| DB
+```
+
+1. ClusterRole 은 클러스터 범위 오브젝트이지만 "무엇을 할 수 있나"만 정의합니다. 혼자서는 아무에게도 권한을 주지 않습니다.
+2. RoleBinding 은 `team-a` 안에 있고, 그 `roleRef` 가 ClusterRole 을 가리킵니다. 권한이 적용되는 범위는 바인딩이 있는 네임스페이스, 즉 `team-a` 뿐입니다.
+3. `team-b` 에는 바인딩이 없으므로 `dev-anna` 의 요청은 거부됩니다. `-A`(모든 네임스페이스)로 나열하려면 클러스터 범위 권한이 필요하므로 이것도 `no` 입니다.
+4. 같은 권한을 `team-c` 에 주려면 ClusterRole 은 그대로 두고 `team-c` 에 RoleBinding 하나만 더 만듭니다.
 
 ## 검증
 

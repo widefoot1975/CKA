@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> In namespace `db`, PVC `pg-data` is `Bound` to a PersistentVolume that was dynamically
+> provisioned by a StorageClass with reclaim policy `Delete`. The data on that volume must
+> survive even if the PVC is deleted by mistake.
+>
+> 1. Write the name of the PersistentVolume bound to PVC `pg-data` to
+>    `/opt/course/f11/pv.txt`.
+> 2. Change the reclaim policy of that PersistentVolume to `Retain`, without recreating the
+>    PV, the PVC or the StorageClass.
+> 3. Verify that `kubectl get pv` shows `Retain` for that volume and that `pg-data` is still
+>    `Bound`.
+
+**해석**
+
 네임스페이스 `db` 의 PVC `pg-data` 는 reclaim policy 가 `Delete` 인 StorageClass 가 동적으로 프로비저닝한
 PersistentVolume 에 `Bound` 되어 있다. PVC 가 실수로 지워지더라도 그 볼륨의 데이터는 살아남아야 한다.
 
@@ -41,6 +56,24 @@ kubectl patch pv $PV --type=json -p '[{"op":"remove","path":"/spec/claimRef"}]' 
 **StorageClass 를 바꾸는 것은 답이 아닙니다.** StorageClass 의 `reclaimPolicy` 는 프로비저닝할 때 새 PV 에
 **복사**될 뿐이라 이미 만들어진 PV 에는 영향이 없습니다. 게다가 StorageClass 의 `reclaimPolicy` 는 만든 뒤
 수정할 수 없습니다. 그래서 기존 볼륨은 PV 를 하나씩 `kubectl patch pv` 로 바꿉니다.
+
+### 그림 — reclaim policy 가 바꾸는 PVC 삭제 이후
+
+```mermaid
+stateDiagram-v2
+    state "삭제됨" as Deleted
+    [*] --> Bound: 파드가 PVC 사용<br/>local-path 가 PV 생성<br/>(reclaimPolicy 는 SC 에서 복사)
+    Bound --> Deleted: PVC 삭제<br/>Delete 정책
+    Bound --> Released: PVC 삭제<br/>Retain 정책
+    Deleted --> [*]: PV 와 노드 디렉터리<br/>모두 사라짐
+    Released --> Available: 관리자가<br/>claimRef 제거
+    Available --> Bound: 새 PVC 가 바인딩
+```
+
+1. 동적 프로비저닝 때 StorageClass 의 `reclaimPolicy`(`Delete`)가 새 PV 의 `persistentVolumeReclaimPolicy` 로 복사됩니다. 그 뒤로 둘은 따로 놉니다.
+2. 정책이 `Delete` 인 채로 PVC 가 지워지면 프로비저너가 PV 와 실제 저장소를 함께 지웁니다. 문제에서 막으려는 경로입니다.
+3. `kubectl patch pv` 로 `Retain` 으로 바꿔 두면 PVC 가 지워져도 PV 는 `Released` 로 남고 데이터도 남습니다.
+4. `Released` PV 는 자동으로 다시 쓰이지 않습니다. 관리자가 `claimRef` 를 지워 `Available` 로 만들어야 새 PVC 가 바인딩됩니다.
 
 ## 검증
 
