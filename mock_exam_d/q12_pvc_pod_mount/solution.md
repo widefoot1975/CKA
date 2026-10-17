@@ -93,17 +93,21 @@ sequenceDiagram
     U->>API: PVC app-data 생성
     Note over API: Pending (파드가 아직 없음)
     U->>API: 파드 writer 생성 (claimName app-data)
+    API-->>S: [watch] 노드 미배정 파드 writer 감지
     S->>API: 노드 선택, PVC 에 selected-node 표시
+    API-->>P: [watch] selected-node 가 붙은 PVC 감지
     P->>API: 그 노드에 PV pvc-uid 생성
     Note over API: PV 와 PVC 바인딩, Bound
-    S->>API: 파드를 그 노드에 배치
+    API-->>S: [watch] PVC Bound 확인
+    S->>API: 파드를 그 노드에 배치 (nodeName 기록)
+    API-->>K: [watch] 내 노드에 배정된 파드 writer 감지
     K->>K: 노드 디렉터리를 /data 에 마운트, 컨테이너 시작
 ```
 
 1. PVC 만 만들었을 때는 아무 일도 일어나지 않고 `Pending` 입니다. `describe pvc` 의 `WaitForFirstConsumer` 이벤트가 이 단계입니다.
-2. PVC 를 쓰는 파드가 생기면 스케줄러가 노드를 먼저 고르고, 그 노드 이름을 PVC 에 적어 둡니다.
-3. 프로비저너가 그 노드의 디렉터리로 PV 를 만들면 PVC 가 `Bound` 가 되고, 파드가 같은 노드에 배치됩니다. PV 에 node affinity 가 붙으므로 이 PVC 를 쓰는 파드는 앞으로도 그 노드로만 갑니다.
-4. kubelet 이 볼륨을 `/data` 에 마운트한 뒤 컨테이너가 `date > /data/out.txt` 를 실행합니다.
+2. 스케줄러는 API 서버를 watch 하다가 `nodeName` 이 비어 있는 파드 writer 를 발견합니다. 이 파드가 `WaitForFirstConsumer` PVC 를 쓰므로 스케줄러가 노드를 먼저 고르고, 그 노드 이름을 PVC 의 `volume.kubernetes.io/selected-node` 어노테이션에 적어 둡니다. 점선 화살표는 모두 이런 watch 알림이고, 각 컴포넌트는 그것을 보고 움직입니다.
+3. 프로비저너는 이 어노테이션이 붙은 PVC 를 보고 그 노드의 디렉터리로 PV 를 만듭니다. 그러면 PVC 가 `Bound` 가 되고, 파드가 같은 노드에 배치됩니다. PV 에 node affinity 가 붙으므로 이 PVC 를 쓰는 파드는 앞으로도 그 노드로만 갑니다.
+4. 파드의 `nodeName` 이 자기 노드로 채워진 것을 본 kubelet 이 볼륨을 `/data` 에 마운트한 뒤 컨테이너가 `date > /data/out.txt` 를 실행합니다.
 
 ## 검증
 
