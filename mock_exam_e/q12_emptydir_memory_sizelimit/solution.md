@@ -4,6 +4,20 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Namespace `tmp` already exists. Create a Pod named `cache-pod` in namespace `tmp` whose two
+> containers share a scratch volume.
+>
+> 1. Container `producer`: image `busybox:1.36`, command
+>    `sh -c 'echo hello > /cache/data; sleep 3600'`.
+> 2. Container `consumer`: image `busybox:1.36`, command `sleep 3600`.
+> 3. Both containers mount an `emptyDir` volume named `cache` at `/cache`. The volume must be backed
+>    by memory (tmpfs) and limited to `64Mi`.
+> 4. Confirm that `consumer` can read `/cache/data` and that `/cache` is a tmpfs mount inside it.
+
+**해석**
+
 `tmp` 네임스페이스는 이미 있다. 두 컨테이너가 임시 볼륨을 공유하는 Pod `cache-pod` 를 `tmp`
 네임스페이스에 만든다.
 
@@ -56,6 +70,27 @@ kubectl apply -f cache-pod.yaml
 `medium: Memory` 는 빠르지만 **여기에 쓴 파일은 그 파일을 쓴 컨테이너의 메모리 사용량으로 계산되어
 memory limit에 포함됩니다.** 큰 파일을 쓰면 OOMKilled의 원인이 될 수 있습니다. `sizeLimit: 64Mi` 를
 주면 tmpfs 크기가 64Mi로 잡혀, 그 이상 쓰면 `No space left on device` 로 실패합니다.
+(메모리 기반 볼륨의 tmpfs 크기를 `sizeLimit` 으로 잡는 동작은 v1.32에서 GA입니다. 실제 크기는
+`sizeLimit` 과 파드 메모리 limit 합계 중 작은 값이고, 둘 다 없으면 노드의 할당 가능 메모리입니다.
+디스크 기반 emptyDir 은 반대로 `sizeLimit` 을 넘으면 쓰기가 막히지 않고 kubelet 이 파드를 축출합니다.)
+
+### 그림 1 — 두 컨테이너가 같은 tmpfs 를 공유하는 구조
+
+```mermaid
+flowchart LR
+    subgraph POD["Pod cache-pod (namespace tmp)"]
+        P["컨테이너 producer<br/>/cache/data 에 hello 쓰기"]
+        C["컨테이너 consumer<br/>/cache/data 읽기"]
+        V[("emptyDir cache<br/>medium: Memory · sizeLimit 64Mi<br/>노드 RAM 의 tmpfs")]
+        P -->|"mountPath /cache (쓰기)"| V
+        C -->|"mountPath /cache (읽기)"| V
+    end
+```
+
+1. 볼륨은 파드 `spec.volumes` 에 **한 번만** 선언하고, 각 컨테이너는 `volumeMounts` 에서 같은 이름 `cache` 로 가리킵니다. 그래서 둘이 같은 디렉터리를 봅니다.
+2. `medium: Memory` 라서 kubelet 이 이 디렉터리를 디스크가 아닌 노드 RAM 위의 tmpfs 로 마운트합니다. 컨테이너 안 `/proc/mounts` 에 `tmpfs /cache` 로 보이는 이유입니다.
+3. `sizeLimit: 64Mi` 가 tmpfs 크기가 되어 `df -h /cache` 의 Size 가 64M 로 나옵니다. producer 가 쓴 `/cache/data` 는 consumer 에서 바로 읽힙니다.
+4. 파드가 지워지면 tmpfs 도 함께 사라집니다. 컨테이너 재시작으로는 지워지지 않습니다.
 
 ## 검증
 
