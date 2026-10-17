@@ -4,6 +4,21 @@
 
 ## 문제 (해석)
 
+**원문**
+
+> Service `api-svc` in namespace `shop` accepts connections but every client gets
+> `connection refused`. Three pods of Deployment `api` are running.
+>
+> 1. Show that the Service has no endpoints, once through its Endpoints object and once
+>    through its EndpointSlice.
+> 2. Compare the Service selector against the labels actually present on the pods.
+> 3. Report whether the pods are `Ready`.
+> 4. Compare the Service `targetPort` against the port the container actually listens on.
+> 5. Fix the Service so three endpoints appear. Do not relabel, restart or recreate the pods.
+> 6. Write in one line the two independent reasons an endpoint list can be empty.
+
+**해석**
+
 `shop` 네임스페이스의 Service `api-svc` 는 접속을 받지만 모든 클라이언트가 `connection refused` 를 받는다. Deployment `api` 의 파드 3개는 실행 중이다.
 
 1. Service에 endpoint가 없음을 Endpoints 오브젝트로 한 번, EndpointSlice로 한 번 보인다.
@@ -21,6 +36,8 @@
 kubectl -n shop get svc api-svc
 kubectl -n shop get endpoints api-svc     # api-svc   <none>   12m  (1.33+ 는 deprecation 경고가 함께 나온다)
 kubectl -n shop get endpointslices -l kubernetes.io/service-name=api-svc
+# NAME            ADDRESSTYPE   PORTS     ENDPOINTS   AGE
+# api-svc-8xk2m   IPv4          <unset>   <unset>     12m
 kubectl -n shop describe svc api-svc      # Selector 와 Endpoints: <none> 를 한 화면에서
 ```
 
@@ -35,8 +52,17 @@ kubectl -n shop get pods --show-labels       # api-xxxx  1/1  Running  ...  app=
 **3) Ready 여부와 4) 포트를 한 번에 봅니다**
 
 ```bash
-kubectl -n shop get pods -o custom-columns='NAME:.metadata.name,READY:.status.containerStatuses[*].ready,PORT:.spec.containers[*].ports[*].containerPort'
+kubectl -n shop get pods -l app=api -o custom-columns='NAME:.metadata.name,READY:.status.containerStatuses[*].ready,PORT:.spec.containers[*].ports[*].containerPort'
 kubectl -n shop get svc api-svc -o jsonpath='{.spec.ports[*]}{"\n"}'
+# READY 는 true,true,true · PORT 는 8080 · Service 는 targetPort 80
+```
+
+`containerPort` 는 선언일 뿐이라 실제 리스닝 포트와 다를 수 있습니다. 확실히 하려면 파드 IP 로 직접 쳐 봅니다(파드를 재시작하지 않는 확인입니다).
+
+```bash
+kubectl -n shop get pods -l app=api -o wide          # 파드 IP 확인
+kubectl -n shop run tmp --rm -i --image=busybox:1.36 --restart=Never -- \
+  wget -qO- -T 3 http://<pod-ip>:8080 | head -4      # 응답이 오면 8080 이 맞다 (80 은 connection refused)
 ```
 
 **원인 표**
@@ -78,7 +104,28 @@ kubectl -n shop get endpointslices -l kubernetes.io/service-name=api-svc -o yaml
   | grep -B2 -A4 conditions        # EndpointSlice: 주소는 남고 conditions.ready 가 false 다
 ```
 
-즉 `ENDPOINTS` 열이 `<none>` 인데 위 두 곳에 주소가 **있으면** readiness 문제이고, 아무 데도 없으면 셀렉터 문제입니다.
+즉 `kubectl get endpoints` 의 `ENDPOINTS` 열(Ready 주소만 보여 줌)이 `<none>` 인데 위 두 곳에 주소가 **있으면** readiness 문제이고, 아무 데도 없으면 셀렉터 문제입니다.
+
+### 그림 — 요청이 끊기는 두 곳
+
+```mermaid
+flowchart LR
+    C["클라이언트<br/>api-svc:80"]
+    subgraph shop["namespace shop"]
+        SVC["Service api-svc<br/>selector: app=api-server<br/>targetPort: 80"]
+        ES["EndpointSlice<br/>endpoints 없음"]
+        P["api 파드 ×3 · Ready<br/>app=api · :8080 에서 들음"]
+    end
+    C --> SVC
+    SVC -->|"① app=api-server 파드를 찾음"| ES
+    ES -.-x|"라벨 불일치 → 0개"| P
+    ES -.-x|"② 고쳐도 :80 으로 보내면 거부"| P
+```
+
+1. Service 는 파드를 직접 가리키지 않습니다. EndpointSlice 컨트롤러가 `selector` 와 라벨이 일치하고 **Ready 인** 파드의 IP 를 슬라이스에 적고, kube-proxy 는 그 목록으로만 보냅니다.
+2. ① 셀렉터가 `app=api-server` 라 일치하는 파드가 0개입니다. 목록이 비어 kube-proxy 가 연결을 거부하고, 클라이언트는 `connection refused` 를 받습니다. 셀렉터를 `app=api` 로 고치면 파드 3개의 IP 가 슬라이스에 채워집니다.
+3. ② 그래도 `targetPort` 가 80 이면 트래픽은 `파드IP:80` 으로 가는데 컨테이너는 8080 에서 듣고 있어 여전히 거부됩니다. 이것은 endpoint 가 **있는** 상태의 고장이라 6번의 "목록이 비는 이유"에는 들지 않습니다.
+4. 두 필드를 Service 에서 고치면 `api-svc:80 → 파드IP:8080` 으로 이어집니다. 파드는 그대로 둡니다.
 
 ## 검증
 
@@ -88,8 +135,8 @@ kubectl -n shop get endpointslices -l kubernetes.io/service-name=api-svc
 # api-svc-x7k2p IPv4          8080    10.244.1.5,10.244.1.6,10.244.2.4
 kubectl -n shop describe svc api-svc | grep -i endpoints
 kubectl -n shop get pods -l app=api            # 3개가 잡혀야 한다
-kubectl -n shop run tmp --rm -it --image=busybox:1.36 --restart=Never -- \
-  wget -qO- api-svc:80 | head -3
+kubectl -n shop run tmp --rm -i --image=busybox:1.36 --restart=Never -- \
+  wget -qO- -T 3 http://api-svc | head -4        # nginx 환영 페이지
 ```
 
 ## 오답 원인 / 배운 점
