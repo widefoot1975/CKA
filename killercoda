@@ -1,2 +1,5 @@
+# 한글 깨짐 문제 해결책
+'''
 export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
+'''
